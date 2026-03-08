@@ -33,6 +33,7 @@ python scripts/run_demo_workflow.py --encrypt-mapping --clean
 
 - `assets/demo/workflow-overview.svg`
 - `assets/demo/vscode-runs-view.svg`
+- `assets/demo/safe-export-gate.svg`
 - `dist/demo-output/demo-summary.md`
 
 ## Speaker notes

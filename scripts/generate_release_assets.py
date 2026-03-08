@@ -20,6 +20,7 @@ DEFAULT_EXTENSION_DIR = ROOT / 'extensions' / 'vscode'
 DEFAULT_SCREENSHOT_ASSETS = [
     ROOT / 'assets' / 'demo' / 'workflow-overview.svg',
     ROOT / 'assets' / 'demo' / 'vscode-runs-view.svg',
+    ROOT / 'assets' / 'demo' / 'safe-export-gate.svg',
 ]
 
 
@@ -212,6 +213,7 @@ def render_release_summary(manifest: dict[str, object]) -> str:
         '- `release-summary.md`',
         '- `release-page.md`',
         '- `demo-summary.md`',
+        '- `docs/landing-page.md`',
         '',
         '## Install',
         '',

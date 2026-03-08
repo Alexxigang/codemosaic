@@ -164,3 +164,19 @@
   - release 资产更适合录屏、发帖、发布页与投资人/用户介绍
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 49/49 OK
+
+## 11. 2026-03-08 Landing Page & Visual Assets Update
+- Research Summary: 仓库已有产品叙事，但还缺一个更接近“官网首页”的独立文案页，以及更聚焦 safe export gate 的视觉素材。
+- Decision: 新增 `docs/landing-page.md` 与 `assets/demo/safe-export-gate.svg`，并把它们纳入 release 资产推荐清单。
+- Execute:
+  - `docs/landing-page.md`: 增加 Hero / Problem / Solution / Differentiators / Demo Script 文案
+  - `assets/demo/safe-export-gate.svg`: 增加可用于 README / release / 发帖的流程图素材
+  - `scripts/generate_release_assets.py`: 将新素材纳入 screenshot manifest
+  - `README.md`: 文档索引中加入 landing page
+  - `docs/demo-walkthrough.md`, `docs/release-playbook.md`: 加入新素材引用
+  - `tests/test_release_page.py`: 校验 screenshot manifest 中包含 `safe-export-gate.svg`
+- Product Impact:
+  - 项目更接近“有官网、有视觉、有 demo story”的成熟开源产品形态
+  - 便于后续迁移到 GitHub Pages、博客或发布平台文案
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 49/49 OK

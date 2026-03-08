@@ -1,0 +1,34 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0d1117"/>
+  <text x="60" y="76" fill="#ffffff" font-size="34" font-family="Segoe UI, Arial">CodeMosaic Safe Export Gate</text>
+  <text x="60" y="114" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">Semantic leakage analysis decides whether masked code may be exported to external AI.</text>
+
+  <rect x="70" y="180" width="300" height="120" rx="20" fill="#1f6feb"/>
+  <text x="132" y="235" fill="#fff" font-size="30" font-family="Segoe UI, Arial">Masked Workspace</text>
+  <text x="120" y="270" fill="#dbeafe" font-size="20" font-family="Segoe UI, Arial">structure kept, secrets obscured</text>
+
+  <rect x="450" y="160" width="300" height="160" rx="20" fill="#161b22" stroke="#30363d" stroke-width="3"/>
+  <text x="505" y="215" fill="#ffffff" font-size="28" font-family="Segoe UI, Arial">Leakage Budget Gate</text>
+  <text x="492" y="255" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">- path terms</text>
+  <text x="492" y="285" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">- identifiers</text>
+  <text x="492" y="315" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">- strings / comments</text>
+
+  <rect x="850" y="110" width="280" height="180" rx="22" fill="#238636"/>
+  <text x="922" y="170" fill="#fff" font-size="28" font-family="Segoe UI, Arial">PASS</text>
+  <text x="900" y="215" fill="#dcfce7" font-size="20" font-family="Segoe UI, Arial">Bundle allowed</text>
+  <text x="892" y="248" fill="#dcfce7" font-size="20" font-family="Segoe UI, Arial">Safe export proceeds</text>
+
+  <rect x="850" y="360" width="280" height="180" rx="22" fill="#da3633"/>
+  <text x="900" y="420" fill="#fff" font-size="28" font-family="Segoe UI, Arial">BLOCKED</text>
+  <text x="890" y="465" fill="#fee2e2" font-size="20" font-family="Segoe UI, Arial">Top-risk files surfaced</text>
+  <text x="900" y="498" fill="#fee2e2" font-size="20" font-family="Segoe UI, Arial">Export stopped locally</text>
+
+  <path d="M370 240 H450" stroke="#8b949e" stroke-width="8"/>
+  <path d="M750 215 H850" stroke="#8b949e" stroke-width="8"/>
+  <path d="M750 455 H850" stroke="#8b949e" stroke-width="8"/>
+  <path d="M600 320 V455" stroke="#8b949e" stroke-width="8"/>
+
+  <rect x="70" y="610" width="1060" height="120" rx="16" fill="#161b22" stroke="#30363d"/>
+  <text x="100" y="660" fill="#c9d1d9" font-size="22" font-family="Consolas, monospace">Normal bundle generation and safe export are intentionally different actions.</text>
+  <text x="100" y="695" fill="#8b949e" font-size="20" font-family="Consolas, monospace">That difference is the product story: not just masking code, but governing whether masked code is safe enough to leave.</text>
+</svg>

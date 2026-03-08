@@ -35,7 +35,9 @@ class ReleasePageTests(unittest.TestCase):
             self.assertIn('Leakage Budget Gate', content)
             payload = json.loads(screenshot_manifest.read_text(encoding='utf-8'))
             self.assertIn('recommended_assets', payload)
-            self.assertGreaterEqual(len(payload['recommended_assets']), 2)
+            self.assertGreaterEqual(len(payload['recommended_assets']), 3)
+            paths = [item.get('path', '') for item in payload['recommended_assets']]
+            self.assertTrue(any(path.endswith('safe-export-gate.svg') for path in paths))
 
 
 if __name__ == '__main__':

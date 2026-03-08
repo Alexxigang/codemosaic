@@ -52,3 +52,10 @@ Lead with this story:
 - Show `Build AI Bundle` succeeding
 - Show `Safe Export Bundle` being blocked by policy
 - Show the Runs view surfacing `Leakage gate: BLOCKED`
+
+## Suggested visuals to pin on release notes
+
+- `assets/demo/workflow-overview.svg`
+- `assets/demo/vscode-runs-view.svg`
+- `assets/demo/safe-export-gate.svg`
+- `docs/landing-page.md`
