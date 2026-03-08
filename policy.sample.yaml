@@ -42,3 +42,12 @@ mapping:
       encryption_provider: aesgcm-v1
     tests/fixtures/**:
       require_encryption: false
+leakage:
+  max_total_score: 20
+  max_file_score: 8
+  rules:
+    src/secret/**:
+      max_total_score: 4
+      max_file_score: 0
+    src/public-sdk/**:
+      max_file_score: 16

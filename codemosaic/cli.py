@@ -1,12 +1,13 @@
 ﻿from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 
 from codemosaic.bundles import build_markdown_bundle
 from codemosaic.crypto import describe_mapping_crypto_providers
-from codemosaic.leakage import leakage_report
+from codemosaic.leakage import evaluate_leakage_budget, has_leakage_budget, leakage_report, write_leakage_report
 from codemosaic.mapping import rewrap_mapping_file
 from codemosaic.patching import apply_patch_file, translate_patch_file
 from codemosaic.policy import load_policy
@@ -14,6 +15,10 @@ from codemosaic.runs import rekey_run_mappings
 from codemosaic.scanning import scan_workspace
 from codemosaic.segmentation import mask_segmented_workspace, plan_mask_segments, write_segment_plan
 from codemosaic.workspace import mask_workspace
+
+
+LEAKAGE_BUDGET_EXIT_CODE = 3
+
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,12 +57,16 @@ def build_parser() -> argparse.ArgumentParser:
     leakage_parser.add_argument('source', type=Path)
     leakage_parser.add_argument('--policy', type=Path, default=None)
     leakage_parser.add_argument('--output', type=Path, default=None)
+    leakage_parser.add_argument('--fail-on-threshold', action='store_true')
 
     bundle_parser = subparsers.add_parser('bundle', help='Build a Markdown bundle for external AI tools')
     bundle_parser.add_argument('source', type=Path)
+    bundle_parser.add_argument('--policy', type=Path, default=None)
     bundle_parser.add_argument('--output', type=Path, default=Path('ai-bundle.md'))
     bundle_parser.add_argument('--max-files', type=int, default=20)
     bundle_parser.add_argument('--max-chars', type=int, default=12000)
+    bundle_parser.add_argument('--leakage-report', type=Path, default=None)
+    bundle_parser.add_argument('--fail-on-threshold', action='store_true')
 
     unmask_parser = subparsers.add_parser('unmask-patch', help='Translate a masked patch')
     unmask_parser.add_argument('patch', type=Path)
@@ -95,6 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -114,8 +124,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f'masked workspace: {report.output_root}')
             print(f'mapping file: {report.mapping_file}')
-            print(f'stats: {report.totals}')
+            print(f'report file: {report.report_file}')
             return 0
+
         if args.command == 'mask-segmented':
             source_root = args.source.resolve()
             output_root = (args.output or source_root.with_name(f'{source_root.name}.masked.segmented')).resolve()
@@ -129,12 +140,13 @@ def main(argv: list[str] | None = None) -> int:
                 mapping_passphrase=mapping_passphrase,
                 mapping_encryption_provider=args.encryption_provider,
             )
-            summary_path = output_root / 'segmented-mask-summary.json'
-            summary_path.write_text(__import__('json').dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding='utf-8')
+            summary_file = output_root / 'segmented-mask-summary.json'
+            summary_file.write_text(json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding='utf-8')
             print(f'segmented output root: {result.output_root}')
             print(f'segment count: {len(result.segments)}')
-            print(f'summary file: {summary_path}')
+            print(f'summary file: {summary_file}')
             return 0
+
         if args.command == 'plan-segments':
             source_root = args.source.resolve()
             output_root = source_root.with_name(f'{source_root.name}.masked.segmented').resolve()
@@ -145,10 +157,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f'segment plan file: {args.output.resolve()}')
             print(f'segment count: {len(segments)}')
             for segment in segments:
-                provider = segment.effective_mapping.encryption_provider or 'none'
+                provider = segment.effective_mapping.encryption_provider or 'plaintext'
                 mode = 'encrypted' if segment.effective_mapping.require_encryption else 'plain'
                 print(f'{segment.segment_id}\t{mode}\t{provider}\t{len(segment.relative_paths)}')
             return 0
+
         if args.command == 'scan':
             policy = load_policy(args.policy.resolve() if args.policy else None)
             report = scan_workspace(
@@ -156,33 +169,49 @@ def main(argv: list[str] | None = None) -> int:
                 policy,
                 output_file=args.output.resolve() if args.output else None,
             )
-            print(f"scanned files: {report['summary']['scanned_files']}")
+            print(f"files scanned: {report['summary']['scanned_files']}")
             print(f"findings: {report['summary']['finding_counts']}")
             if args.output:
                 print(f'report file: {args.output.resolve()}')
             return 0
+
         if args.command == 'leakage-report':
             policy = load_policy(args.policy.resolve() if args.policy else None)
-            report = leakage_report(
+            report, budget = _build_leakage_analysis(
                 args.source.resolve(),
                 policy,
                 output_file=args.output.resolve() if args.output else None,
             )
-            print(f"scanned files: {report['summary']['scanned_files']}")
-            print(f"total score: {report['summary']['total_score']}")
-            print(f"highest risk files: {report['summary']['highest_risk_files']}")
+            _print_leakage_summary(report, budget)
             if args.output:
                 print(f'report file: {args.output.resolve()}')
+            if args.fail_on_threshold and budget and not budget['passed']:
+                print('leakage gate blocked this workspace')
+                return LEAKAGE_BUDGET_EXIT_CODE
             return 0
+
         if args.command == 'bundle':
+            source_root = args.source.resolve()
+            policy = load_policy(args.policy.resolve() if args.policy else None)
+            leakage_output = args.leakage_report.resolve() if args.leakage_report else None
+            should_analyze_leakage = args.fail_on_threshold or leakage_output is not None or has_leakage_budget(policy)
+            if should_analyze_leakage:
+                report, budget = _build_leakage_analysis(source_root, policy, output_file=leakage_output)
+                _print_leakage_summary(report, budget)
+                if leakage_output:
+                    print(f'leakage report file: {leakage_output}')
+                if args.fail_on_threshold and budget and not budget['passed']:
+                    print('bundle blocked by leakage budget')
+                    return LEAKAGE_BUDGET_EXIT_CODE
             bundle = build_markdown_bundle(
-                args.source.resolve(),
+                source_root,
                 args.output.resolve(),
                 max_files=args.max_files,
                 max_chars_per_file=args.max_chars,
             )
             print(f'bundle file: {bundle}')
             return 0
+
         if args.command == 'unmask-patch':
             output_file = translate_patch_file(
                 args.patch.resolve(),
@@ -192,6 +221,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f'translated patch: {output_file}')
             return 0
+
         if args.command == 'apply':
             apply_patch_file(
                 args.patch.resolve(),
@@ -204,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f'patch applied: {args.patch.resolve()}')
             return 0
+
         if args.command == 'rekey-mapping':
             new_passphrase = _resolve_new_passphrase(args)
             output_file = rewrap_mapping_file(
@@ -217,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f'rewrapped mapping: {output_file}')
             print(f'output mode: {mode}')
             return 0
+
         if args.command == 'rekey-runs':
             new_passphrase = _resolve_new_passphrase(args)
             output_files = rekey_run_mappings(
@@ -235,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
             for path in output_files:
                 print(str(path))
             return 0
+
         if args.command == 'list-providers':
             for provider in describe_mapping_crypto_providers():
                 default_marker = ' (default)' if provider['default'] else ''
@@ -246,14 +279,46 @@ def main(argv: list[str] | None = None) -> int:
     return 2
 
 
+
+def _build_leakage_analysis(
+    source_root: Path,
+    policy,
+    output_file: Path | None,
+) -> tuple[dict[str, object], dict[str, object] | None]:
+    report = leakage_report(source_root, policy)
+    budget = evaluate_leakage_budget(report, policy)
+    if budget is not None:
+        report['budget'] = budget
+    if output_file is not None:
+        write_leakage_report(report, output_file)
+    return report, budget
+
+
+
+def _print_leakage_summary(report: dict[str, object], budget: dict[str, object] | None) -> None:
+    print(f"files scanned: {report['summary']['scanned_files']}")
+    print(f"total leakage score: {report['summary']['total_score']}")
+    print(f"highest risk files: {report['summary']['highest_risk_files']}")
+    if budget is None:
+        return
+    status = 'passed' if budget['passed'] else 'failed'
+    print(f'leakage gate: {status}')
+    if not budget['passed']:
+        for message in budget['messages']:
+            print(f'- {message}')
+
+
+
 def _add_passphrase_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--passphrase-env', type=str, default=None)
     parser.add_argument('--passphrase-file', type=Path, default=None)
 
 
+
 def _add_new_passphrase_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--new-passphrase-env', type=str, default=None)
     parser.add_argument('--new-passphrase-file', type=Path, default=None)
+
 
 
 def _resolve_passphrase(args: argparse.Namespace, required: bool) -> str | None:
@@ -268,6 +333,7 @@ def _resolve_passphrase(args: argparse.Namespace, required: bool) -> str | None:
     )
 
 
+
 def _resolve_new_passphrase(args: argparse.Namespace) -> str | None:
     return _resolve_passphrase_pair(
         env_name=getattr(args, 'new_passphrase_env', None),
@@ -278,6 +344,7 @@ def _resolve_new_passphrase(args: argparse.Namespace) -> str | None:
         file_option='--new-passphrase-file',
         label='new passphrase',
     )
+
 
 
 def _resolve_passphrase_pair(

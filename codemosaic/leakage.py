@@ -70,9 +70,128 @@ def leakage_report(
         'files': file_reports,
     }
     if output_file is not None:
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+        write_leakage_report(report, output_file)
     return report
+
+
+
+def write_leakage_report(report: dict[str, object], output_file: Path) -> Path:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+    return output_file
+
+
+
+def has_leakage_budget(policy: MaskPolicy) -> bool:
+    if policy.leakage.max_total_score is not None or policy.leakage.max_file_score is not None:
+        return True
+    return any(
+        rule.max_total_score is not None or rule.max_file_score is not None for rule in policy.leakage.rules
+    )
+
+
+
+def evaluate_leakage_budget(report: dict[str, object], policy: MaskPolicy) -> dict[str, object] | None:
+    if not has_leakage_budget(policy):
+        return None
+
+    files = report.get('files', [])
+    file_items = [item for item in files if isinstance(item, dict)]
+    violations: list[dict[str, object]] = []
+    messages: list[str] = []
+
+    total_score = int(report['summary']['total_score'])
+    if policy.leakage.max_total_score is not None:
+        passed = total_score <= policy.leakage.max_total_score
+        if not passed:
+            violations.append(
+                {
+                    'type': 'global_total',
+                    'actual_score': total_score,
+                    'max_allowed_score': policy.leakage.max_total_score,
+                }
+            )
+            messages.append(
+                f'global total leakage score {total_score} exceeds limit {policy.leakage.max_total_score}'
+            )
+
+    file_checks: list[dict[str, object]] = []
+    for item in file_items:
+        relative_path = str(item['path'])
+        score = int(item['score'])
+        effective = policy.resolve_leakage_file_policy(relative_path)
+        if effective.max_file_score is None:
+            continue
+        passed = score <= effective.max_file_score
+        check = {
+            'path': relative_path,
+            'actual_score': score,
+            'max_allowed_score': effective.max_file_score,
+            'matched_pattern': effective.matched_pattern,
+            'passed': passed,
+        }
+        file_checks.append(check)
+        if not passed:
+            violations.append(
+                {
+                    'type': 'file_score',
+                    'path': relative_path,
+                    'actual_score': score,
+                    'max_allowed_score': effective.max_file_score,
+                    'matched_pattern': effective.matched_pattern,
+                }
+            )
+            pattern_suffix = f" (rule: {effective.matched_pattern})" if effective.matched_pattern else ''
+            messages.append(
+                f'file leakage score {relative_path}={score} exceeds limit {effective.max_file_score}{pattern_suffix}'
+            )
+
+    rule_totals: list[dict[str, object]] = []
+    for rule in policy.leakage.rules:
+        if rule.max_total_score is None:
+            continue
+        matched_files = [item for item in file_items if _path_matches_rule(policy, str(item['path']), rule.pattern)]
+        actual_total = int(sum(int(item['score']) for item in matched_files))
+        passed = actual_total <= rule.max_total_score
+        rule_summary = {
+            'pattern': rule.pattern,
+            'actual_score': actual_total,
+            'max_allowed_score': rule.max_total_score,
+            'matched_files': [str(item['path']) for item in matched_files],
+            'passed': passed,
+        }
+        rule_totals.append(rule_summary)
+        if not passed:
+            violations.append(
+                {
+                    'type': 'rule_total',
+                    'pattern': rule.pattern,
+                    'actual_score': actual_total,
+                    'max_allowed_score': rule.max_total_score,
+                    'matched_files': rule_summary['matched_files'],
+                }
+            )
+            messages.append(
+                f'rule total leakage score {rule.pattern}={actual_total} exceeds limit {rule.max_total_score}'
+            )
+
+    return {
+        'configured': True,
+        'passed': not violations,
+        'global_limits': {
+            'max_total_score': policy.leakage.max_total_score,
+            'max_file_score': policy.leakage.max_file_score,
+        },
+        'file_checks': file_checks,
+        'rule_totals': rule_totals,
+        'violations': violations,
+        'messages': messages,
+    }
+
+
+
+def _path_matches_rule(policy: MaskPolicy, relative_path: str, pattern: str) -> bool:
+    return any(rule.pattern == pattern for rule in policy.matching_leakage_rules(relative_path))
 
 
 

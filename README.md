@@ -83,6 +83,22 @@ mapping:
 
 If a run includes files under `src/secret/**`, `mask` now requires a passphrase and blocks plaintext mapping output.
 
+### Leakage Budget Gate
+
+`codemosaic` can now enforce a semantic leakage budget before you export code to external AI tools. This is the key differentiator: not just masking code, but deciding whether the masked result is still safe enough to leave your boundary.
+
+```yaml
+leakage:
+  max_total_score: 20
+  max_file_score: 8
+  rules:
+    src/secret/**:
+      max_total_score: 4
+      max_file_score: 0
+```
+
+Use `leakage-report --fail-on-threshold` for CI checks, or `bundle --fail-on-threshold` to block unsafe exports automatically.
+
 ### 3. 为外部 AI 导出上下文包
 
 ```bash
@@ -128,7 +144,7 @@ python -m codemosaic scan <source> [--policy <file>] [--output <report.json>]
 ### `leakage-report`
 
 ```bash
-python -m codemosaic leakage-report <masked-source> [--policy <file>] [--output <report.json>]
+python -m codemosaic leakage-report <masked-source> [--policy <file>] [--output <report.json>] [--fail-on-threshold]
 ```
 
 推荐对已经 masking 后的工作区执行，用来回答“代码虽然脱敏了，但还残留多少业务语义”。
@@ -164,7 +180,7 @@ python -m codemosaic plan-segments <source> [--policy <file>] [--output <plan.js
 ### `bundle`
 
 ```bash
-python -m codemosaic bundle <source> [--output <file>] [--max-files 20] [--max-chars 12000]
+python -m codemosaic bundle <source> [--policy <file>] [--output <file>] [--max-files 20] [--max-chars 12000] [--leakage-report <report.json>] [--fail-on-threshold]
 ```
 
 推荐对 `masked workspace` 使用，只导出最小必要上下文。
@@ -256,6 +272,7 @@ python scripts/package_vscode_extension.py --overwrite
 - `docs/architecture.md`
 - `docs/threat-model.md`
 - `docs/vscode-extension.md`
+- `docs/leakage-gate.md`
 - `extensions/vscode/README.md`
 - `scripts/package_vscode_extension.py`
 - `scripts/bootstrap_repository.py`

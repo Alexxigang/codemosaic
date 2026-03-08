@@ -34,6 +34,26 @@ class PolicyLoaderTests(unittest.TestCase):
             self.assertEqual(policy.mapping.encryption_provider, 'prototype-v1')
             self.assertEqual(policy.mapping.rules[0].pattern, 'src/secret/**')
 
+    def test_policy_loads_leakage_budget_from_yaml(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            policy_path = Path(temp_dir) / 'policy.yaml'
+            policy_path.write_text(
+                'leakage:\n'
+                '  max_total_score: 12\n'
+                '  max_file_score: 4\n'
+                '  rules:\n'
+                '    src/secret/**:\n'
+                '      max_total_score: 1\n'
+                '      max_file_score: 0\n',
+                encoding='utf-8',
+            )
+            policy = load_policy(policy_path)
+            self.assertEqual(policy.leakage.max_total_score, 12)
+            self.assertEqual(policy.leakage.max_file_score, 4)
+            self.assertEqual(policy.leakage.rules[0].pattern, 'src/secret/**')
+            self.assertEqual(policy.leakage.rules[0].max_total_score, 1)
+            self.assertEqual(policy.leakage.rules[0].max_file_score, 0)
+
     def test_policy_resolves_mapping_enforcement_for_matched_files(self) -> None:
         policy = MaskPolicy.from_dict(
             {
@@ -52,6 +72,26 @@ class PolicyLoaderTests(unittest.TestCase):
         resolved = policy.resolve_mapping_policy(['src/secret/app.py'])
         self.assertTrue(resolved.require_encryption)
         self.assertEqual(resolved.encryption_provider, 'prototype-v1')
+
+    def test_policy_resolves_leakage_file_threshold_from_matching_rule(self) -> None:
+        policy = MaskPolicy.from_dict(
+            {
+                'leakage': {
+                    'max_file_score': 5,
+                    'rules': {
+                        'src/finance/**': {
+                            'max_file_score': 0,
+                        }
+                    },
+                }
+            }
+        )
+        resolved = policy.resolve_leakage_file_policy('src/finance/app.py')
+        self.assertEqual(resolved.max_file_score, 0)
+        self.assertEqual(resolved.matched_pattern, 'src/finance/**')
+        default_resolved = policy.resolve_leakage_file_policy('src/public/app.py')
+        self.assertEqual(default_resolved.max_file_score, 5)
+        self.assertIsNone(default_resolved.matched_pattern)
 
     def test_policy_detects_conflicting_provider_requirements(self) -> None:
         policy = MaskPolicy.from_dict(

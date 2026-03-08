@@ -58,6 +58,27 @@ class EffectiveMappingPolicy:
 
 
 @dataclass(slots=True)
+class LeakageRulePolicy:
+    pattern: str
+    max_total_score: int | None = None
+    max_file_score: int | None = None
+    order: int = 0
+
+
+@dataclass(slots=True)
+class LeakagePolicy:
+    max_total_score: int | None = None
+    max_file_score: int | None = None
+    rules: list[LeakageRulePolicy] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class EffectiveLeakageFilePolicy:
+    max_file_score: int | None
+    matched_pattern: str | None = None
+
+
+@dataclass(slots=True)
 class MaskPolicy:
     paths: PathPolicy = field(default_factory=PathPolicy)
     identifiers: IdentifierPolicy = field(default_factory=IdentifierPolicy)
@@ -65,6 +86,7 @@ class MaskPolicy:
     comments: CommentPolicy = field(default_factory=CommentPolicy)
     workspace: WorkspacePolicy = field(default_factory=WorkspacePolicy)
     mapping: MappingPolicy = field(default_factory=MappingPolicy)
+    leakage: LeakagePolicy = field(default_factory=LeakagePolicy)
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> 'MaskPolicy':
@@ -74,6 +96,7 @@ class MaskPolicy:
         comments = data.get('comments', {}) if isinstance(data, dict) else {}
         workspace = data.get('workspace', {}) if isinstance(data, dict) else {}
         mapping = data.get('mapping', {}) if isinstance(data, dict) else {}
+        leakage = data.get('leakage', {}) if isinstance(data, dict) else {}
         return cls(
             paths=PathPolicy(
                 include=list(paths.get('include', [])) if isinstance(paths, dict) else [],
@@ -106,6 +129,11 @@ class MaskPolicy:
                 ),
                 rules=_load_mapping_rules(mapping.get('rules', {})) if isinstance(mapping, dict) else [],
             ),
+            leakage=LeakagePolicy(
+                max_total_score=_optional_int(leakage.get('max_total_score')) if isinstance(leakage, dict) else None,
+                max_file_score=_optional_int(leakage.get('max_file_score')) if isinstance(leakage, dict) else None,
+                rules=_load_leakage_rules(leakage.get('rules', {})) if isinstance(leakage, dict) else [],
+            ),
         )
 
     def resolve_mapping_policy(
@@ -126,27 +154,36 @@ class MaskPolicy:
                 require_encryption = True
             if rule.encryption_provider:
                 matched_specific_providers.add(rule.encryption_provider)
-        effective_encryption = encryption_requested or require_encryption
-        policy_provider = _resolve_policy_provider(
+        effective_encryption = require_encryption or encryption_requested
+        effective_provider = _resolve_policy_provider(
             matched_specific_providers,
-            self.mapping.encryption_provider,
+            provider_override or self.mapping.encryption_provider,
             effective_encryption,
         )
-        if provider_override:
-            if effective_encryption and policy_provider and provider_override != policy_provider:
-                raise ValueError(
-                    f"provider override '{provider_override}' conflicts with policy-required provider '{policy_provider}'"
-                )
+        if require_encryption and not encryption_requested:
             return EffectiveMappingPolicy(
-                require_encryption=require_encryption,
-                encryption_provider=provider_override,
-                matched_patterns=tuple(sorted(set(matched_patterns))),
+                require_encryption=True,
+                encryption_provider=effective_provider,
+                matched_patterns=tuple(dict.fromkeys(matched_patterns)),
             )
         return EffectiveMappingPolicy(
-            require_encryption=require_encryption,
-            encryption_provider=policy_provider,
-            matched_patterns=tuple(sorted(set(matched_patterns))),
+            require_encryption=effective_encryption,
+            encryption_provider=effective_provider,
+            matched_patterns=tuple(dict.fromkeys(matched_patterns)),
         )
+
+    def resolve_leakage_file_policy(self, relative_path: str) -> EffectiveLeakageFilePolicy:
+        rule = _select_leakage_rule(self.leakage.rules, relative_path)
+        max_file_score = self.leakage.max_file_score
+        if rule is not None and rule.max_file_score is not None:
+            max_file_score = rule.max_file_score
+        return EffectiveLeakageFilePolicy(
+            max_file_score=max_file_score,
+            matched_pattern=rule.pattern if rule is not None else None,
+        )
+
+    def matching_leakage_rules(self, relative_path: str) -> tuple[LeakageRulePolicy, ...]:
+        return tuple(rule for rule in self.leakage.rules if _matches_path(relative_path, rule.pattern))
 
 
 
@@ -157,29 +194,28 @@ def load_policy(path: Path | None) -> MaskPolicy:
     try:
         return MaskPolicy.from_dict(json.loads(raw))
     except json.JSONDecodeError:
-        pass
-    try:
-        import yaml  # type: ignore
-
-        parsed = yaml.safe_load(raw) or {}
-        return MaskPolicy.from_dict(parsed if isinstance(parsed, dict) else {})
-    except ModuleNotFoundError:
-        parsed = _load_simple_yaml(raw)
-        return MaskPolicy.from_dict(parsed)
+        try:
+            parsed = _load_simple_yaml(raw)
+        except ValueError as exc:
+            raise ValueError(f'failed to parse policy file {path}: {exc}') from exc
+        if isinstance(parsed, dict):
+            return MaskPolicy.from_dict(parsed)
+        raise ValueError(f'failed to parse policy file {path}: unsupported structure')
 
 
 
-def _load_mapping_rules(raw_rules: object) -> list[MappingRulePolicy]:
+def _load_mapping_rules(data: object) -> list[MappingRulePolicy]:
     rules: list[MappingRulePolicy] = []
-    if isinstance(raw_rules, dict):
-        for index, (pattern, payload) in enumerate(raw_rules.items()):
-            if not isinstance(payload, dict):
-                continue
+    if isinstance(data, dict):
+        for index, (pattern, payload) in enumerate(data.items()):
+            payload = payload if isinstance(payload, dict) else {}
             rules.append(
                 MappingRulePolicy(
                     pattern=_normalize_pattern(str(pattern)),
                     require_encryption=(
-                        bool(payload.get('require_encryption')) if payload.get('require_encryption') is not None else None
+                        bool(payload.get('require_encryption'))
+                        if 'require_encryption' in payload
+                        else None
                     ),
                     encryption_provider=(
                         str(payload.get('encryption_provider'))
@@ -189,20 +225,24 @@ def _load_mapping_rules(raw_rules: object) -> list[MappingRulePolicy]:
                     order=index,
                 )
             )
-        return rules
-    if isinstance(raw_rules, list):
-        for index, payload in enumerate(raw_rules):
-            if not isinstance(payload, dict) or 'pattern' not in payload:
+    elif isinstance(data, list):
+        for index, item in enumerate(data):
+            if not isinstance(item, dict):
+                continue
+            pattern = item.get('pattern')
+            if pattern is None:
                 continue
             rules.append(
                 MappingRulePolicy(
-                    pattern=_normalize_pattern(str(payload.get('pattern'))),
+                    pattern=_normalize_pattern(str(pattern)),
                     require_encryption=(
-                        bool(payload.get('require_encryption')) if payload.get('require_encryption') is not None else None
+                        bool(item.get('require_encryption'))
+                        if 'require_encryption' in item
+                        else None
                     ),
                     encryption_provider=(
-                        str(payload.get('encryption_provider'))
-                        if payload.get('encryption_provider') is not None
+                        str(item.get('encryption_provider'))
+                        if item.get('encryption_provider') is not None
                         else None
                     ),
                     order=index,
@@ -212,11 +252,51 @@ def _load_mapping_rules(raw_rules: object) -> list[MappingRulePolicy]:
 
 
 
+def _load_leakage_rules(data: object) -> list[LeakageRulePolicy]:
+    rules: list[LeakageRulePolicy] = []
+    if isinstance(data, dict):
+        for index, (pattern, payload) in enumerate(data.items()):
+            payload = payload if isinstance(payload, dict) else {}
+            rules.append(
+                LeakageRulePolicy(
+                    pattern=_normalize_pattern(str(pattern)),
+                    max_total_score=_optional_int(payload.get('max_total_score')),
+                    max_file_score=_optional_int(payload.get('max_file_score')),
+                    order=index,
+                )
+            )
+    elif isinstance(data, list):
+        for index, item in enumerate(data):
+            if not isinstance(item, dict):
+                continue
+            pattern = item.get('pattern')
+            if pattern is None:
+                continue
+            rules.append(
+                LeakageRulePolicy(
+                    pattern=_normalize_pattern(str(pattern)),
+                    max_total_score=_optional_int(item.get('max_total_score')),
+                    max_file_score=_optional_int(item.get('max_file_score')),
+                    order=index,
+                )
+            )
+    return rules
+
+
 
 def _normalize_pattern(pattern: str) -> str:
     if pattern.startswith(("'", '"')) and pattern.endswith(("'", '"')) and len(pattern) >= 2:
         return pattern[1:-1]
     return pattern
+
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None or value == '':
+        return None
+    return int(value)
+
+
 
 def _resolve_policy_provider(
     matched_specific_providers: set[str],
@@ -235,6 +315,14 @@ def _resolve_policy_provider(
 
 
 def _select_mapping_rule(rules: list[MappingRulePolicy], relative_path: str) -> MappingRulePolicy | None:
+    matched = [rule for rule in rules if _matches_path(relative_path, rule.pattern)]
+    if not matched:
+        return None
+    return max(matched, key=lambda rule: (_pattern_specificity(rule.pattern), rule.order))
+
+
+
+def _select_leakage_rule(rules: list[LeakageRulePolicy], relative_path: str) -> LeakageRulePolicy | None:
     matched = [rule for rule in rules if _matches_path(relative_path, rule.pattern)]
     if not matched:
         return None

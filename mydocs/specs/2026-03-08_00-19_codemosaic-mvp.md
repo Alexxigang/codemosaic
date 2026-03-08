@@ -111,3 +111,21 @@
 
 ## 7. Plan-Execution Diff
 - 待执行完成后回填。
+
+## 8. 2026-03-08 Leakage Budget Gate Update
+- Research Summary: 单纯“做脱敏”不足以形成产品差异；真正有吸引力的是“导出前治理与拦截”。
+- Decision: 新增 `Leakage Budget Gate`，把 `semantic leakage analysis` 升级为可执行的策略门禁。
+- Policy Contract:
+  - `leakage.max_total_score`
+  - `leakage.max_file_score`
+  - `leakage.rules.<glob>.max_total_score`
+  - `leakage.rules.<glob>.max_file_score`
+- Execute:
+  - `codemosaic/policy.py`: 增加 leakage policy / rule / resolution
+  - `codemosaic/leakage.py`: 增加 budget evaluator 与 report writer
+  - `codemosaic/cli.py`: `leakage-report --fail-on-threshold` 与 `bundle --fail-on-threshold`
+  - `policy.sample.yaml`: 增加 leakage 策略样例
+  - `docs/leakage-gate.md`: 增加治理与 CI 用法说明
+  - `tests/test_cli_leakage_gate.py`: 增加导出拦截测试
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 48/48 OK
