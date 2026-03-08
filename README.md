@@ -125,6 +125,14 @@ python -m codemosaic scan <source> [--policy <file>] [--output <report.json>]
 
 输出 URL、邮箱、手机号、疑似密钥、内网主机和注释提示词等风险线索统计。
 
+### `leakage-report`
+
+```bash
+python -m codemosaic leakage-report <masked-source> [--policy <file>] [--output <report.json>]
+```
+
+推荐对已经 masking 后的工作区执行，用来回答“代码虽然脱敏了，但还残留多少业务语义”。
+推荐对已经 masking 后的工作区执行，用来回答“代码虽然脱敏了，但还残留多少业务语义”。
 ### `mask`
 
 ```bash
@@ -143,7 +151,7 @@ python -m codemosaic mask <source> [--policy <file>] [--output <dir>] [--run-id 
 python -m codemosaic mask-segmented <source> [--policy <file>] [--output <dir>] [--run-id-prefix <prefix>] [--encrypt-mapping] [--encryption-provider <name>] [--passphrase-env <ENV>] [--passphrase-file <file>]
 ```
 
-????? mapping ??????????? segment??? segment ????? masked workspace?mapping ? report?
+根据路径级 mapping 规则把一次处理拆成多个 segment，每个 segment 生成独立的 masked workspace、mapping 和 report。
 
 ### `plan-segments`
 
@@ -151,7 +159,7 @@ python -m codemosaic mask-segmented <source> [--policy <file>] [--output <dir>] 
 python -m codemosaic plan-segments <source> [--policy <file>] [--output <plan.json>]
 ```
 
-?????????????? segment??????????? provider???????????
+预览当前策略会把仓库切成哪些 segment，适合在真正执行前检查 provider、加密要求和文件分布。
 
 ### `bundle`
 
