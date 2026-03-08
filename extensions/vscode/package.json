@@ -16,6 +16,7 @@
     "onView:codemosaicRuns",
     "onCommand:codemosaic.quickWorkflow",
     "onCommand:codemosaic.scanWorkspace",
+    "onCommand:codemosaic.leakageReport",
     "onCommand:codemosaic.maskWorkspace",
     "onCommand:codemosaic.planSegments",
     "onCommand:codemosaic.bundleMaskedWorkspace",
@@ -38,6 +39,10 @@
       {
         "command": "codemosaic.scanWorkspace",
         "title": "CodeMosaic: Scan Workspace"
+      },
+      {
+        "command": "codemosaic.leakageReport",
+        "title": "CodeMosaic: Analyze Semantic Leakage"
       },
       {
         "command": "codemosaic.maskWorkspace",
@@ -135,6 +140,10 @@
         },
         {
           "command": "codemosaic.maskSegmentedWorkspace",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.leakageReport",
           "when": "workspaceFolderCount != 0"
         }
       ]

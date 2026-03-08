@@ -8,6 +8,7 @@
 
 - `CodeMosaic: Quick Workflow`
 - `CodeMosaic: Scan Workspace`
+- `CodeMosaic: Analyze Semantic Leakage`
 - `CodeMosaic: Mask Workspace`
 - `CodeMosaic: Plan Segments`
 - `CodeMosaic: Mask Segmented Workspace`

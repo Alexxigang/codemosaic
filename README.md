@@ -67,6 +67,8 @@ python -m codemosaic mask ./your-repo --policy policy.sample.yaml --encrypt-mapp
 
 ### Policy-Driven Mapping Encryption
 
+This project is intentionally moving beyond plain secret scanning into semantic leakage control: not just ?did we redact secrets??, but also ?did business meaning still leak??.
+
 You can require encrypted mappings for specific paths directly in `policy.sample.yaml` style rules:
 
 ```yaml

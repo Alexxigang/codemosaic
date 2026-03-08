@@ -14,6 +14,14 @@ class VscodeManifestTests(unittest.TestCase):
         activation_events = set(payload['activationEvents'])
         self.assertIn('onCommand:codemosaic.planSegments', activation_events)
 
+    def test_manifest_exposes_leakage_report_command(self) -> None:
+        package_json = Path(__file__).resolve().parents[1] / 'extensions' / 'vscode' / 'package.json'
+        payload = json.loads(package_json.read_text(encoding='utf-8'))
+        commands = {item['command'] for item in payload['contributes']['commands']}
+        self.assertIn('codemosaic.leakageReport', commands)
+        activation_events = set(payload['activationEvents'])
+        self.assertIn('onCommand:codemosaic.leakageReport', activation_events)
+
     def test_manifest_exposes_mask_segmented_workspace_command(self) -> None:
         package_json = Path(__file__).resolve().parents[1] / 'extensions' / 'vscode' / 'package.json'
         payload = json.loads(package_json.read_text(encoding='utf-8'))

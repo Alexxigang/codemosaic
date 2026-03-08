@@ -13,6 +13,7 @@ function activate(context) {
     vscode.window.registerTreeDataProvider('codemosaicRuns', runsProvider),
     vscode.commands.registerCommand('codemosaic.quickWorkflow', () => quickWorkflow(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.scanWorkspace', () => scanWorkspace(output, runsProvider)),
+    vscode.commands.registerCommand('codemosaic.leakageReport', () => leakageReport(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.maskWorkspace', () => maskWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.planSegments', () => planSegments(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.maskSegmentedWorkspace', () => maskSegmentedWorkspace(output, runsProvider)),
@@ -119,6 +120,7 @@ async function quickWorkflow(output, runsProvider) {
   const latestRun = recentRuns[0] || null;
   const picks = [
     { label: 'Scan workspace', detail: 'Run CodeMosaic scan on the current workspace', run: () => scanWorkspace(output, runsProvider) },
+    { label: 'Analyze semantic leakage', detail: 'Estimate business meaning that still leaks after masking', run: () => leakageReport(output, runsProvider) },
     { label: 'Mask workspace', detail: 'Generate a masked workspace and mapping file', run: () => maskWorkspace(output, runsProvider) },
     { label: 'Plan segments', detail: 'Preview policy-driven masking segments', run: () => planSegments(output, runsProvider) },
     { label: 'Mask segmented workspace', detail: 'Run masking once per policy segment', run: () => maskSegmentedWorkspace(output, runsProvider) },
@@ -161,6 +163,7 @@ async function quickWorkflow(output, runsProvider) {
     });
   }
   const bundleFile = path.join(workspaceRoot, '.codemosaic', 'ai-bundle.md');
+  const leakageReportFile = path.join(workspaceRoot, '.codemosaic', 'leakage-report.json');
   const segmentPlanFile = path.join(workspaceRoot, '.codemosaic', 'segment-plan.json');
   const segmentedSummaryFile = path.join(`${workspaceRoot}.masked.segmented`, 'segmented-mask-summary.json');
   if (fs.existsSync(bundleFile)) {
@@ -168,6 +171,13 @@ async function quickWorkflow(output, runsProvider) {
       label: 'Open latest AI bundle',
       detail: bundleFile,
       run: () => openIfExists(bundleFile)
+    });
+  }
+  if (fs.existsSync(leakageReportFile)) {
+    picks.push({
+      label: 'Open latest leakage report',
+      detail: leakageReportFile,
+      run: () => openIfExists(leakageReportFile)
     });
   }
   if (fs.existsSync(segmentPlanFile)) {
@@ -212,6 +222,35 @@ async function scanWorkspace(output, runsProvider) {
   runsProvider.refresh();
   vscode.window.showInformationMessage(`CodeMosaic scan complete: ${reportPath}`);
   openIfExists(reportPath);
+}
+
+async function leakageReport(output, runsProvider) {
+  const workspaceRoot = await requireWorkspaceRoot();
+  if (!workspaceRoot) {
+    return;
+  }
+  const defaultSource = `${workspaceRoot}.masked`;
+  const source = await vscode.window.showInputBox({
+    title: 'Masked workspace path for leakage analysis',
+    value: defaultSource,
+    ignoreFocusOut: true
+  });
+  if (!source) {
+    return;
+  }
+  const policyPath = resolveConfiguredPolicy(workspaceRoot);
+  const outputFile = path.join(workspaceRoot, '.codemosaic', 'leakage-report.json');
+  const args = ['leakage-report', source, '--output', outputFile];
+  if (policyPath) {
+    args.push('--policy', policyPath);
+  }
+  const result = await runCodeMosaic(args, { cwd: workspaceRoot }, output);
+  if (!result) {
+    return;
+  }
+  runsProvider.refresh();
+  vscode.window.showInformationMessage(`CodeMosaic leakage report ready: ${outputFile}`);
+  openIfExists(outputFile);
 }
 
 async function maskWorkspace(output, runsProvider) {
@@ -654,6 +693,7 @@ function buildRootItems(workspaceRoot) {
   const recentRuns = getRecentRuns(workspaceRoot);
   const scanReport = path.join(workspaceRoot, '.codemosaic', 'scan-report.json');
   const bundleFile = path.join(workspaceRoot, '.codemosaic', 'ai-bundle.md');
+  const leakageReportFile = path.join(workspaceRoot, '.codemosaic', 'leakage-report.json');
   const segmentPlanFile = path.join(workspaceRoot, '.codemosaic', 'segment-plan.json');
   const segmentedSummaryFile = path.join(`${workspaceRoot}.masked.segmented`, 'segmented-mask-summary.json');
 
@@ -673,6 +713,15 @@ function buildRootItems(workspaceRoot) {
       description: '.codemosaic/ai-bundle.md',
       filePath: bundleFile,
       icon: 'book'
+    });
+  }
+  if (fs.existsSync(leakageReportFile)) {
+    items.push({
+      type: 'artifact',
+      label: 'Latest leakage report',
+      description: '.codemosaic/leakage-report.json',
+      filePath: leakageReportFile,
+      icon: 'pulse'
     });
   }
   if (fs.existsSync(segmentPlanFile)) {

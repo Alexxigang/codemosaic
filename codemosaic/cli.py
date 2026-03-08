@@ -6,6 +6,7 @@ from pathlib import Path
 
 from codemosaic.bundles import build_markdown_bundle
 from codemosaic.crypto import describe_mapping_crypto_providers
+from codemosaic.leakage import leakage_report
 from codemosaic.mapping import rewrap_mapping_file
 from codemosaic.patching import apply_patch_file, translate_patch_file
 from codemosaic.policy import load_policy
@@ -46,6 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument('source', type=Path)
     scan_parser.add_argument('--policy', type=Path, default=None)
     scan_parser.add_argument('--output', type=Path, default=None)
+
+    leakage_parser = subparsers.add_parser('leakage-report', help='Estimate semantic leakage that remains after masking')
+    leakage_parser.add_argument('source', type=Path)
+    leakage_parser.add_argument('--policy', type=Path, default=None)
+    leakage_parser.add_argument('--output', type=Path, default=None)
 
     bundle_parser = subparsers.add_parser('bundle', help='Build a Markdown bundle for external AI tools')
     bundle_parser.add_argument('source', type=Path)
@@ -152,6 +158,19 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"scanned files: {report['summary']['scanned_files']}")
             print(f"findings: {report['summary']['finding_counts']}")
+            if args.output:
+                print(f'report file: {args.output.resolve()}')
+            return 0
+        if args.command == 'leakage-report':
+            policy = load_policy(args.policy.resolve() if args.policy else None)
+            report = leakage_report(
+                args.source.resolve(),
+                policy,
+                output_file=args.output.resolve() if args.output else None,
+            )
+            print(f"scanned files: {report['summary']['scanned_files']}")
+            print(f"total score: {report['summary']['total_score']}")
+            print(f"highest risk files: {report['summary']['highest_risk_files']}")
             if args.output:
                 print(f'report file: {args.output.resolve()}')
             return 0
