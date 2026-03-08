@@ -161,11 +161,27 @@ async function quickWorkflow(output, runsProvider) {
     });
   }
   const bundleFile = path.join(workspaceRoot, '.codemosaic', 'ai-bundle.md');
+  const segmentPlanFile = path.join(workspaceRoot, '.codemosaic', 'segment-plan.json');
+  const segmentedSummaryFile = path.join(`${workspaceRoot}.masked.segmented`, 'segmented-mask-summary.json');
   if (fs.existsSync(bundleFile)) {
     picks.push({
       label: 'Open latest AI bundle',
       detail: bundleFile,
       run: () => openIfExists(bundleFile)
+    });
+  }
+  if (fs.existsSync(segmentPlanFile)) {
+    picks.push({
+      label: 'Open latest segment plan',
+      detail: segmentPlanFile,
+      run: () => openIfExists(segmentPlanFile)
+    });
+  }
+  if (fs.existsSync(segmentedSummaryFile)) {
+    picks.push({
+      label: 'Open latest segmented summary',
+      detail: segmentedSummaryFile,
+      run: () => openIfExists(segmentedSummaryFile)
     });
   }
 
@@ -638,6 +654,8 @@ function buildRootItems(workspaceRoot) {
   const recentRuns = getRecentRuns(workspaceRoot);
   const scanReport = path.join(workspaceRoot, '.codemosaic', 'scan-report.json');
   const bundleFile = path.join(workspaceRoot, '.codemosaic', 'ai-bundle.md');
+  const segmentPlanFile = path.join(workspaceRoot, '.codemosaic', 'segment-plan.json');
+  const segmentedSummaryFile = path.join(`${workspaceRoot}.masked.segmented`, 'segmented-mask-summary.json');
 
   if (fs.existsSync(scanReport)) {
     items.push({
@@ -655,6 +673,24 @@ function buildRootItems(workspaceRoot) {
       description: '.codemosaic/ai-bundle.md',
       filePath: bundleFile,
       icon: 'book'
+    });
+  }
+  if (fs.existsSync(segmentPlanFile)) {
+    items.push({
+      type: 'artifact',
+      label: 'Latest segment plan',
+      description: '.codemosaic/segment-plan.json',
+      filePath: segmentPlanFile,
+      icon: 'list-tree'
+    });
+  }
+  if (fs.existsSync(segmentedSummaryFile)) {
+    items.push({
+      type: 'artifact',
+      label: 'Latest segmented summary',
+      description: '.masked.segmented/segmented-mask-summary.json',
+      filePath: segmentedSummaryFile,
+      icon: 'files'
     });
   }
   if (!recentRuns.length && !items.length) {

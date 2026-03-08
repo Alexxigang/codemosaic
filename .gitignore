@@ -2,3 +2,5 @@
 *.masked/
 __pycache__/
 .pytest_cache/
+dist/
+*.masked.segmented/
