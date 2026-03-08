@@ -242,3 +242,18 @@
   - 提升 GitHub / 社交媒体传播质量
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 55/55 OK
+
+## 16. 2026-03-09 Release Template & Site Fallback Update
+- Research Summary: 社交传播层已就绪，但仓库根目录缺正式 release notes 模板，站点也缺少 404 / robots 等兜底文件。
+- Decision: 增加 `.github/RELEASE_TEMPLATE.md` 与站点 fallback 文件，并修复站点 meta 文本。
+- Execute:
+  - `.github/RELEASE_TEMPLATE.md`: 发布说明模板，围绕 AI Code Privacy Gateway 叙事
+  - `docs/site/404.html`: Pages 404 页面
+  - `docs/site/robots.txt`: 基础 robots 文件
+  - `docs/site/index.html`: 修正 preview 标题文本
+  - `tests/test_site_assets.py`: 校验 fallback 文件与 release template 存在
+- Product Impact:
+  - 发布说明模板更适合外部发布
+  - Pages 站点更完整，减少死链和搜索抓取层面的粗糙感
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 55/55 OK

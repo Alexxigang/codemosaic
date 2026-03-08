@@ -10,6 +10,8 @@ class SiteAssetsTests(unittest.TestCase):
         self.assertTrue((root / 'docs' / 'site' / 'index.html').exists())
         self.assertTrue((root / 'docs' / 'site' / 'style.css').exists())
         self.assertTrue((root / 'docs' / 'site' / '.nojekyll').exists())
+        self.assertTrue((root / 'docs' / 'site' / '404.html').exists())
+        self.assertTrue((root / 'docs' / 'site' / 'robots.txt').exists())
         self.assertTrue((root / 'docs' / 'site' / 'assets' / 'safe-export-gate.svg').exists())
         self.assertTrue((root / 'docs' / 'site' / 'assets' / 'social-card.svg').exists())
 
@@ -21,6 +23,8 @@ class SiteAssetsTests(unittest.TestCase):
         self.assertIn('actions/deploy-pages@v4', content)
         self.assertIn('path: docs/site', content)
         self.assertIn('python scripts/build_site.py --clean-assets', content)
+        release_template = root / '.github' / 'RELEASE_TEMPLATE.md'
+        self.assertTrue(release_template.exists())
 
     def test_static_site_contains_social_meta_tags(self) -> None:
         root = Path(__file__).resolve().parents[1]
