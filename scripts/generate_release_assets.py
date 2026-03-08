@@ -93,20 +93,10 @@ def generate_release_assets(
     )
 
     asset_paths = collect_asset_paths(output_root, vsix_path, demo_summary)
-    summary_manifest = {
-        'release_assets_root': str(output_root),
-        'vsix_file': str(vsix_path),
-        'demo_summary': demo_summary,
-        'assets': {key: str(value) for key, value in asset_paths.items()},
-        'checksums': {},
-        'screenshot_manifest': screenshot_manifest,
-    }
-    summary_path.write_text(render_release_summary(summary_manifest), encoding='utf-8', newline='\n')
-    release_page_path.write_text(render_release_page(summary_manifest), encoding='utf-8', newline='\n')
     checksum_targets = {
         key: value
         for key, value in asset_paths.items()
-        if key not in {'release_manifest', 'checksums'}
+        if key not in {'release_manifest', 'checksums'} and value.exists()
     }
     checksums = {relative_path: sha256_file(path) for relative_path, path in checksum_targets.items()}
     manifest = {
@@ -125,6 +115,8 @@ def generate_release_assets(
 
 
 def collect_asset_paths(output_root: Path, vsix_path: Path, demo_summary: dict[str, object]) -> dict[str, Path]:
+    safe_export = demo_summary.get('safe_export', {}) if isinstance(demo_summary, dict) else {}
+    safe_bundle_path = safe_export.get('bundle_file') if isinstance(safe_export, dict) else None
     return {
         'vsix': vsix_path,
         'demo_summary_json': output_root / 'demo-output' / 'demo-summary.json',
@@ -135,26 +127,33 @@ def collect_asset_paths(output_root: Path, vsix_path: Path, demo_summary: dict[s
         'screenshot_manifest': output_root / 'screenshot-manifest.json',
         'checksums': output_root / 'SHA256SUMS.txt',
         'demo_scan_report': Path(str(demo_summary['scan_report_file'])),
+        'demo_leakage_report': Path(str(demo_summary['leakage_report_file'])),
         'demo_mapping': Path(str(demo_summary['mapping_file'])),
         'demo_bundle': Path(str(demo_summary['bundle_file'])),
+        'demo_safe_bundle': Path(str(safe_bundle_path)) if safe_bundle_path else output_root / 'demo-output' / 'missing-safe-bundle.txt',
     }
 
 
 def build_screenshot_manifest(output_root: Path) -> dict[str, object]:
-    items: list[dict[str, str]] = []
+    recommended_assets = []
     for asset in DEFAULT_SCREENSHOT_ASSETS:
-        items.append(
+        recommended_assets.append(
             {
-                'label': asset.stem,
                 'path': str(asset),
-                'recommended_usage': 'Release page / README / demo walkthrough',
+                'exists': asset.exists(),
+                'recommended_usage': 'Overview or release-page visual',
             }
         )
+    recommended_assets.append(
+        {
+            'path': str(output_root / 'demo-output' / 'demo-summary.md'),
+            'exists': True,
+            'recommended_usage': 'Show the blocked-vs-allowed export decision in docs or release notes',
+        }
+    )
     return {
-        'output_root': str(output_root),
-        'recommended_assets': items,
+        'recommended_assets': recommended_assets,
         'notes': [
-            'SVG assets are safe to attach directly to GitHub releases.',
             'For real product screenshots, replace these placeholders with captured editor images.',
             'Use docs/demo-walkthrough.md as the speaking guide while preparing screenshots.',
         ],
@@ -176,6 +175,7 @@ def render_checksums(checksums: dict[str, str]) -> str:
 
 def render_release_summary(manifest: dict[str, object]) -> str:
     demo_summary = manifest['demo_summary']
+    safe_export = demo_summary.get('safe_export', {}) if isinstance(demo_summary, dict) else {}
     lines = [
         '# Release Asset Summary',
         '',
@@ -188,8 +188,22 @@ def render_release_summary(manifest: dict[str, object]) -> str:
         '',
         f"- Demo summary: `{manifest['assets']['demo_summary_md']}`",
         f"- Scan report: `{manifest['assets']['demo_scan_report']}`",
+        f"- Leakage report: `{manifest['assets']['demo_leakage_report']}`",
         f"- Mapping: `{manifest['assets']['demo_mapping']}`",
         f"- AI bundle: `{manifest['assets']['demo_bundle']}`",
+        '',
+        '## Differentiator Snapshot',
+        '',
+    ]
+    if isinstance(demo_summary, dict):
+        lines.append(f"- Run id: `{demo_summary.get('run_id', '')}`")
+        lines.append(f"- Mask stats: `{json.dumps(demo_summary.get('stats', {}), ensure_ascii=False)}`")
+        lines.append(f"- Leakage total score: `{demo_summary.get('leakage_summary', {}).get('total_score', 0)}`")
+        lines.append(f"- Safe export status: `{safe_export.get('status', 'unknown')}`")
+        messages = safe_export.get('messages', []) if isinstance(safe_export, dict) else []
+        if messages:
+            lines.append(f"- Gate reasons: `{'; '.join(messages[:3])}`")
+    lines.extend([
         '',
         '## Suggested Release Attachments',
         '',
@@ -197,17 +211,7 @@ def render_release_summary(manifest: dict[str, object]) -> str:
         '- `SHA256SUMS.txt`',
         '- `release-summary.md`',
         '- `release-page.md`',
-        '',
-        '## Demo Snapshot',
-        '',
-    ]
-    if isinstance(demo_summary, dict):
-        lines.append(f"- Run id: `{demo_summary.get('run_id', '')}`")
-        lines.append(f"- Mask stats: `{json.dumps(demo_summary.get('stats', {}), ensure_ascii=False)}`")
-        scan_summary = demo_summary.get('scan_summary', {})
-        if isinstance(scan_summary, dict):
-            lines.append(f"- Scan findings: `{json.dumps(scan_summary.get('finding_counts', {}), ensure_ascii=False)}`")
-    lines.extend([
+        '- `demo-summary.md`',
         '',
         '## Install',
         '',
@@ -221,6 +225,8 @@ def render_release_summary(manifest: dict[str, object]) -> str:
 def render_release_page(manifest: dict[str, object]) -> str:
     demo_summary = manifest['demo_summary']
     scan_summary = demo_summary.get('scan_summary', {}) if isinstance(demo_summary, dict) else {}
+    leakage_summary = demo_summary.get('leakage_summary', {}) if isinstance(demo_summary, dict) else {}
+    safe_export = demo_summary.get('safe_export', {}) if isinstance(demo_summary, dict) else {}
     screenshot_manifest = manifest.get('screenshot_manifest', {})
     screenshot_lines = []
     if isinstance(screenshot_manifest, dict):
@@ -230,25 +236,37 @@ def render_release_page(manifest: dict[str, object]) -> str:
     lines = [
         '# CodeMosaic Release Draft',
         '',
+        '## Product Positioning',
+        '',
+        'CodeMosaic is an AI Code Privacy Gateway: it helps teams prepare code for external AI tools, measure semantic leakage after masking, and block exports that still reveal too much business meaning.',
+        '',
         '## Highlights',
         '',
         '- Local-first source masking workflow for external AI coding tools',
-        '- Python and JS/TS masking support with optional encrypted mapping vaults',
-        '- VS Code prototype extension with runs explorer and quick workflow entry point',
-        '- Automated demo workflow and release asset generation for repeatable demos',
+        '- Reversible closed loop: mask -> AI -> patch -> unmask/apply',
+        '- Semantic leakage analysis after masking, not just pre-mask secret scanning',
+        '- Leakage Budget Gate that can block unsafe exports before they leave the workstation',
+        '- VS Code prototype with safe export workflow and gate status in the Runs view',
         '',
         '## What ships in this release',
         '',
         f"- VSIX package: `{Path(str(manifest['vsix_file'])).name}`",
-        '- Local scan, mask, bundle, unmask-patch, and apply CLI commands',
-        '- VS Code prototype extension with status bar entry and runs explorer',
+        '- Local scan, mask, leakage-report, bundle, unmask-patch, and apply CLI commands',
+        '- VS Code prototype extension with status bar entry, safe export command, and runs explorer',
         '- Demo repo and release-ready walkthrough assets',
         '',
         '## Validation summary',
         '',
         f"- Demo run id: `{demo_summary.get('run_id', '') if isinstance(demo_summary, dict) else ''}`",
         f"- Scan findings: `{json.dumps(scan_summary.get('finding_counts', {}), ensure_ascii=False) if isinstance(scan_summary, dict) else '{}'}`",
-        f"- Mask stats: `{json.dumps(demo_summary.get('stats', {}), ensure_ascii=False) if isinstance(demo_summary, dict) else '{}'}`",
+        f"- Leakage score: `{leakage_summary.get('total_score', 0) if isinstance(leakage_summary, dict) else 0}`",
+        f"- Safe export decision: `{safe_export.get('status', 'unknown') if isinstance(safe_export, dict) else 'unknown'}`",
+        '',
+        '## Why this is different',
+        '',
+        '- Many tools only redact secrets.',
+        '- CodeMosaic also evaluates whether the masked result still leaks business meaning.',
+        '- Teams can then enforce a policy gate before sharing code with external AI systems.',
         '',
         '## Installation',
         '',

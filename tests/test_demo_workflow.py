@@ -34,6 +34,9 @@ class DemoWorkflowTests(unittest.TestCase):
             self.assertTrue(str(payload['mapping_file']).endswith('mapping.enc.json'))
             self.assertTrue(Path(payload['bundle_file']).exists())
             self.assertTrue(Path(payload['masked_root']).exists())
+            self.assertTrue(Path(payload['leakage_report_file']).exists())
+            self.assertEqual(payload['safe_export']['status'], 'blocked')
+            self.assertTrue(payload['safe_export']['messages'])
 
 
 if __name__ == '__main__':

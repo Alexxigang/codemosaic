@@ -1,4 +1,4 @@
-paths:
+﻿paths:
   include:
     - "**/*.py"
     - "**/*.ts"
@@ -9,3 +9,12 @@ comments:
   mode: placeholder
 workspace:
   copy_unmatched: true
+mapping:
+  require_encryption: false
+  encryption_provider: prototype-v1
+leakage:
+  max_total_score: 8
+  max_file_score: 4
+  rules:
+    web/**:
+      max_file_score: 0

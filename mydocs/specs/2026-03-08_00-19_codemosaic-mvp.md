@@ -146,3 +146,21 @@
 - Validation:
   - `node --check extensions/vscode/extension.js`
   - `python -m unittest discover -s tests -v` => 49/49 OK
+
+## 10. 2026-03-08 Product Narrative & Demo Packaging Update
+- Research Summary: 仅有功能还不够，开源项目首页、demo 与 release 资产必须一眼讲清“为什么它和普通脱敏工具不同”。
+- Decision: 围绕 `AI Code Privacy Gateway` 叙事，强化 README、demo workflow、release page 与示例仓库。
+- Execute:
+  - `README.md`: 增加一句话定位、差异化说明、目标用户与安全导出说明
+  - `examples/demo-repo/policy.yaml`: 增加严格 leakage gate 策略用于演示拦截
+  - `examples/demo-repo/README.md`: 说明该 demo 会触发 safe export blocked
+  - `scripts/run_demo_workflow.py`: 产出 leakage report 与 safe export decision
+  - `scripts/generate_release_assets.py`: 在 release summary/page 中突出 gate 与产品定位
+  - `docs/demo-walkthrough.md`: 加入 `Safe Export Bundle` 演示脚本
+  - `docs/release-playbook.md`: 加入面向发布的叙事与展示建议
+- Product Impact:
+  - 仓库首页更像产品首页
+  - demo 不再只展示“能脱敏”，而是展示“能治理、能拦截”
+  - release 资产更适合录屏、发帖、发布页与投资人/用户介绍
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 49/49 OK

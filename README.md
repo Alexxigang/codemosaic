@@ -297,3 +297,29 @@ python -m unittest discover -s tests -v
 - `v0.1`：CLI 原型 + Python masking + JS/TS masking + mapping encryption + patch translator + scan/bundle + VS Code prototype + runs explorer
 - `v0.2`：TypeScript AST 脱敏 + 更强策略系统 + 插件交互增强
 - `v0.3`：企业级策略集成 + 审计日志 + 签名发布与更完整的 IDE 集成
+
+## ????????
+
+- ??????????? AI ???????
+- ?????????????????????????????
+- ??????????? AI ??????????????????
+
+## Product Positioning
+
+CodeMosaic is an **AI Code Privacy Gateway** for teams that want to use external AI coding tools without sending raw proprietary code.
+
+### Why it stands out
+
+- Reversible workflow: `mask -> AI -> patch -> unmask/apply`
+- Policy-driven segmentation and mapping encryption
+- Semantic leakage analysis after masking
+- Leakage Budget Gate that blocks unsafe exports before they leave the workstation
+- VS Code prototype and demo assets built around the same safe-export story
+
+### Safe export example
+
+```bash
+python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold
+```
+
+When the leakage budget is exceeded, the command exits with code `3` and does not generate the bundle.

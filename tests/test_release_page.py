@@ -32,6 +32,7 @@ class ReleasePageTests(unittest.TestCase):
             self.assertTrue(screenshot_manifest.exists())
             content = release_page.read_text(encoding='utf-8')
             self.assertIn('# CodeMosaic Release Draft', content)
+            self.assertIn('Leakage Budget Gate', content)
             payload = json.loads(screenshot_manifest.read_text(encoding='utf-8'))
             self.assertIn('recommended_assets', payload)
             self.assertGreaterEqual(len(payload['recommended_assets']), 2)

@@ -36,6 +36,9 @@ class ReleaseAssetsTests(unittest.TestCase):
             self.assertIn('vsix_file', payload)
             self.assertIn('checksums', payload)
             self.assertTrue(Path(payload['vsix_file']).exists())
+            self.assertIn('safe_export', payload['demo_summary'])
+            self.assertEqual(payload['demo_summary']['safe_export']['status'], 'blocked')
+            self.assertIn('demo_leakage_report', payload['assets'])
 
 
 if __name__ == '__main__':

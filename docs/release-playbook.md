@@ -1,4 +1,4 @@
-# Release Playbook
+﻿# Release Playbook
 
 ## Local dry run
 
@@ -34,27 +34,21 @@ This produces a release asset bundle under `dist/release-assets/` with:
 - `dist/release-assets/SHA256SUMS.txt`
 - `dist/release-assets/release-summary.md`
 - `dist/release-assets/release-page.md`
-- optional: demo SVGs from `assets/demo/`
+- `dist/release-assets/demo-output/demo-summary.md`
 
-## Demo prep
+## Product narrative for release notes
 
-Run:
+Lead with this story:
 
-```bash
-python scripts/run_demo_workflow.py --encrypt-mapping --clean
-```
+1. Teams want to use external AI tools without sending raw proprietary code
+2. Masking is necessary but not sufficient
+3. CodeMosaic adds semantic leakage analysis and a policy gate before export
+4. The VS Code prototype turns that into a visible developer workflow
 
-Then use `docs/demo-walkthrough.md` for the live walkthrough.
+## Demo checklist for launch material
 
-
-## Mapping key rotation
-
-When demo assets or local runs need a fresh passphrase, use:
-
-```bash
-python -m codemosaic rekey-mapping <mapping.enc.json> \
-  --passphrase-env OLD_CODEMOSAIC_PASSPHRASE \
-  --new-passphrase-env NEW_CODEMOSAIC_PASSPHRASE
-```
-
-If you omit the new passphrase options, the command writes a plaintext mapping file instead.
+- Show a masked workspace being generated
+- Show a leakage report with highest-risk files
+- Show `Build AI Bundle` succeeding
+- Show `Safe Export Bundle` being blocked by policy
+- Show the Runs view surfacing `Leakage gate: BLOCKED`
