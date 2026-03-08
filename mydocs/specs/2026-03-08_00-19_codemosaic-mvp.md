@@ -227,3 +227,18 @@
   - 降低站点素材与主仓素材不一致的维护风险
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 54/54 OK
+
+## 15. 2026-03-09 Social Preview Pack Update
+- Research Summary: 站点已可发布，但还缺少更适合 GitHub / 社交平台分享的预览图和 metadata。
+- Decision: 新增社交分享图 `social-card.svg`，并为静态站点加入 Open Graph / Twitter meta tags。
+- Execute:
+  - `assets/demo/social-card.svg`: 分享卡片素材
+  - `scripts/build_site.py`: 同步 `social-card.svg`
+  - `scripts/generate_release_assets.py`: screenshot manifest 纳入 `social-card.svg`
+  - `docs/site/index.html`: 增加 `og:*` 与 `twitter:*` meta
+  - `tests/test_site_assets.py`: 校验社交 meta 与站点内分享图存在
+- Product Impact:
+  - 仓库和站点链接在外部平台分享时更像成熟产品页面
+  - 提升 GitHub / 社交媒体传播质量
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 55/55 OK

@@ -21,6 +21,7 @@ DEFAULT_SCREENSHOT_ASSETS = [
     ROOT / 'assets' / 'demo' / 'workflow-overview.svg',
     ROOT / 'assets' / 'demo' / 'vscode-runs-view.svg',
     ROOT / 'assets' / 'demo' / 'safe-export-gate.svg',
+    ROOT / 'assets' / 'demo' / 'social-card.svg',
 ]
 
 

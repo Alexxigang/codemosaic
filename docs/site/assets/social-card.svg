@@ -1,0 +1,36 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#1f6feb"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="64" y="58" width="1072" height="514" rx="28" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+  <text x="96" y="128" fill="#7ee787" font-size="22" font-family="Segoe UI, Arial" letter-spacing="2">AI CODE PRIVACY GATEWAY</text>
+  <text x="96" y="214" fill="#ffffff" font-size="54" font-family="Segoe UI, Arial" font-weight="700">CodeMosaic</text>
+  <text x="96" y="282" fill="#d0d7de" font-size="32" font-family="Segoe UI, Arial">Use external AI coding tools without</text>
+  <text x="96" y="326" fill="#d0d7de" font-size="32" font-family="Segoe UI, Arial">shipping raw proprietary code.</text>
+  <rect x="96" y="378" width="430" height="56" rx="16" fill="url(#accent)"/>
+  <text x="124" y="414" fill="#ffffff" font-size="24" font-family="Segoe UI, Arial" font-weight="700">Leakage Budget Gate blocks unsafe exports</text>
+  <text x="96" y="486" fill="#8b949e" font-size="24" font-family="Segoe UI, Arial">mask → leakage-report → safe export → unmask/apply</text>
+
+  <rect x="690" y="120" width="360" height="160" rx="22" fill="#0d1117" stroke="#30363d"/>
+  <text x="730" y="176" fill="#ffffff" font-size="28" font-family="Segoe UI, Arial">PASS / BLOCK</text>
+  <text x="730" y="218" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">Decide if masked code may leave</text>
+  <text x="730" y="248" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">the workstation boundary.</text>
+
+  <rect x="690" y="314" width="168" height="126" rx="18" fill="#238636"/>
+  <text x="740" y="374" fill="#ffffff" font-size="28" font-family="Segoe UI, Arial" font-weight="700">PASS</text>
+  <text x="721" y="408" fill="#dcfce7" font-size="18" font-family="Segoe UI, Arial">safe bundle</text>
+
+  <rect x="882" y="314" width="168" height="126" rx="18" fill="#da3633"/>
+  <text x="919" y="374" fill="#ffffff" font-size="28" font-family="Segoe UI, Arial" font-weight="700">BLOCK</text>
+  <text x="914" y="408" fill="#fee2e2" font-size="18" font-family="Segoe UI, Arial">export stopped</text>
+
+  <text x="96" y="548" fill="#8b949e" font-size="20" font-family="Segoe UI, Arial">github.com/Alexxigang/codemosaic</text>
+</svg>
