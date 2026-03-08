@@ -129,3 +129,20 @@
   - `tests/test_cli_leakage_gate.py`: 增加导出拦截测试
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 48/48 OK
+
+## 9. 2026-03-08 VS Code Safe Export Update
+- Research Summary: CLI 已有预算门禁，但用户侧还缺少“明显可感知”的产品交互，尤其是导出前阻断与风险反馈。
+- Decision: 在 VS Code 原型中新增 `Safe Export Bundle` 命令，并在 Runs 视图直接展示 leakage gate 状态。
+- Execute:
+  - `extensions/vscode/extension.js`: 增加安全导出命令、允许处理 exit code 3、泄露报告解析与阻断提示
+  - `extensions/vscode/package.json`: 暴露 `codemosaic.safeBundleMaskedWorkspace`
+  - `extensions/vscode/README.md`: 补充安全导出命令说明
+  - `docs/vscode-extension.md`: 补充 gate 交互说明
+  - `tests/test_vscode_manifest.py`: 增加 manifest 覆盖
+- Product Impact:
+  - 用户在编辑器里可以直接体验“分析 -> 门禁 -> 导出”的闭环
+  - 失败时不只是报错，而是提示最高风险文件，增强可理解性与演示效果
+- Review Verdict: PASS
+- Validation:
+  - `node --check extensions/vscode/extension.js`
+  - `python -m unittest discover -s tests -v` => 49/49 OK

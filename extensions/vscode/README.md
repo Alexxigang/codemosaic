@@ -10,6 +10,7 @@
 - `CodeMosaic: Mask Workspace`
 - `CodeMosaic: Plan Segments`
 - `CodeMosaic: Mask Segmented Workspace`
+- `CodeMosaic: Safe Export Bundle`
 - `CodeMosaic: Build AI Bundle`
 - `CodeMosaic: Unmask Patch`
 - `CodeMosaic: Rekey Mapping`

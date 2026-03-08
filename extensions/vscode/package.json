@@ -19,6 +19,7 @@
     "onCommand:codemosaic.leakageReport",
     "onCommand:codemosaic.maskWorkspace",
     "onCommand:codemosaic.planSegments",
+    "onCommand:codemosaic.safeBundleMaskedWorkspace",
     "onCommand:codemosaic.bundleMaskedWorkspace",
     "onCommand:codemosaic.maskSegmentedWorkspace",
     "onCommand:codemosaic.unmaskPatch",
@@ -51,6 +52,10 @@
       {
         "command": "codemosaic.planSegments",
         "title": "CodeMosaic: Plan Segments"
+      },
+      {
+        "command": "codemosaic.safeBundleMaskedWorkspace",
+        "title": "CodeMosaic: Safe Export Bundle"
       },
       {
         "command": "codemosaic.bundleMaskedWorkspace",
@@ -144,6 +149,10 @@
         },
         {
           "command": "codemosaic.leakageReport",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.safeBundleMaskedWorkspace",
           "when": "workspaceFolderCount != 0"
         }
       ]

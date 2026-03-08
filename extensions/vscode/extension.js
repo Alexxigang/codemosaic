@@ -17,6 +17,7 @@ function activate(context) {
     vscode.commands.registerCommand('codemosaic.maskWorkspace', () => maskWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.planSegments', () => planSegments(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.maskSegmentedWorkspace', () => maskSegmentedWorkspace(output, runsProvider)),
+    vscode.commands.registerCommand('codemosaic.safeBundleMaskedWorkspace', () => safeBundleMaskedWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.bundleMaskedWorkspace', () => bundleMaskedWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.unmaskPatch', () => unmaskPatch(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.rekeyMapping', (item) => rekeyMapping(output, runsProvider, item)),
@@ -124,6 +125,7 @@ async function quickWorkflow(output, runsProvider) {
     { label: 'Mask workspace', detail: 'Generate a masked workspace and mapping file', run: () => maskWorkspace(output, runsProvider) },
     { label: 'Plan segments', detail: 'Preview policy-driven masking segments', run: () => planSegments(output, runsProvider) },
     { label: 'Mask segmented workspace', detail: 'Run masking once per policy segment', run: () => maskSegmentedWorkspace(output, runsProvider) },
+    { label: 'Safe export bundle', detail: 'Run leakage gate and export only if the masked code stays within budget', run: () => safeBundleMaskedWorkspace(output, runsProvider) },
     { label: 'Build AI bundle', detail: 'Export a Markdown bundle from the masked workspace', run: () => bundleMaskedWorkspace(output, runsProvider) },
     { label: 'Unmask patch', detail: 'Translate a masked patch back to original code', run: () => unmaskPatch(output, runsProvider) },
     { label: 'Rekey mapping', detail: 'Rotate or re-wrap a local mapping file', run: () => rekeyMapping(output, runsProvider) },
@@ -249,8 +251,11 @@ async function leakageReport(output, runsProvider) {
     return;
   }
   runsProvider.refresh();
-  vscode.window.showInformationMessage(`CodeMosaic leakage report ready: ${outputFile}`);
-  openIfExists(outputFile);
+  await showLeakageOutcome(outputFile, {
+    successMessage: `CodeMosaic leakage report ready: ${outputFile}`,
+    blockedMessage: 'CodeMosaic leakage gate reports this masked workspace is still too revealing.',
+    openOnSuccess: true
+  });
 }
 
 async function maskWorkspace(output, runsProvider) {
@@ -359,6 +364,43 @@ async function maskSegmentedWorkspace(output, runsProvider) {
   openIfExists(summaryFile);
 }
 
+async function safeBundleMaskedWorkspace(output, runsProvider) {
+  const workspaceRoot = await requireWorkspaceRoot();
+  if (!workspaceRoot) {
+    return;
+  }
+  const config = vscode.workspace.getConfiguration('codemosaic');
+  const defaultSource = `${workspaceRoot}.masked`;
+  const source = await vscode.window.showInputBox({
+    title: 'Masked workspace path for safe export',
+    value: defaultSource,
+    ignoreFocusOut: true
+  });
+  if (!source) {
+    return;
+  }
+  const outputFile = path.join(workspaceRoot, '.codemosaic', 'ai-bundle.md');
+  const leakageReportFile = path.join(workspaceRoot, '.codemosaic', 'leakage-report.json');
+  const args = buildBundleArgs(workspaceRoot, source, outputFile, config, {
+    safeMode: true,
+    leakageReportFile
+  });
+  const result = await runCodeMosaic(args, { cwd: workspaceRoot, allowedExitCodes: [0, 3] }, output);
+  if (!result) {
+    return;
+  }
+  runsProvider.refresh();
+  if (result.code === 3) {
+    await showLeakageOutcome(leakageReportFile, {
+      blockedMessage: 'Safe export was blocked by the leakage budget gate.',
+      openOnSuccess: false
+    });
+    return;
+  }
+  vscode.window.showInformationMessage(`CodeMosaic safe bundle ready: ${outputFile}`);
+  openIfExists(outputFile);
+}
+
 async function bundleMaskedWorkspace(output, runsProvider) {
   const workspaceRoot = await requireWorkspaceRoot();
   if (!workspaceRoot) {
@@ -375,6 +417,17 @@ async function bundleMaskedWorkspace(output, runsProvider) {
     return;
   }
   const outputFile = path.join(workspaceRoot, '.codemosaic', 'ai-bundle.md');
+  const args = buildBundleArgs(workspaceRoot, source, outputFile, config, { safeMode: false });
+  const result = await runCodeMosaic(args, { cwd: workspaceRoot }, output);
+  if (!result) {
+    return;
+  }
+  runsProvider.refresh();
+  vscode.window.showInformationMessage(`CodeMosaic bundle ready: ${outputFile}`);
+  openIfExists(outputFile);
+}
+
+function buildBundleArgs(workspaceRoot, source, outputFile, config, options = {}) {
   const args = [
     'bundle',
     source,
@@ -385,13 +438,17 @@ async function bundleMaskedWorkspace(output, runsProvider) {
     '--max-chars',
     String(config.get('bundle.maxChars', 12000))
   ];
-  const result = await runCodeMosaic(args, { cwd: workspaceRoot }, output);
-  if (!result) {
-    return;
+  const policyPath = resolveConfiguredPolicy(workspaceRoot);
+  if (policyPath) {
+    args.push('--policy', policyPath);
   }
-  runsProvider.refresh();
-  vscode.window.showInformationMessage(`CodeMosaic bundle ready: ${outputFile}`);
-  openIfExists(outputFile);
+  if (options.safeMode) {
+    if (options.leakageReportFile) {
+      args.push('--leakage-report', options.leakageReportFile);
+    }
+    args.push('--fail-on-threshold');
+  }
+  return args;
 }
 
 async function unmaskPatch(output, runsProvider) {
@@ -645,6 +702,7 @@ async function runCodeMosaic(args, options, output) {
   const executable = config.get('cliCommand', 'python');
   const prefixArgs = config.get('cliArgs', ['-m', 'codemosaic']);
   const fullArgs = [...prefixArgs, ...args];
+  const allowedExitCodes = Array.isArray(options.allowedExitCodes) ? options.allowedExitCodes : [0];
   output.show(true);
   output.appendLine(`> ${executable} ${fullArgs.join(' ')}`);
 
@@ -677,7 +735,7 @@ async function runCodeMosaic(args, options, output) {
     });
 
     child.on('close', (code) => {
-      if (code === 0) {
+      if (allowedExitCodes.includes(code)) {
         resolve({ stdout, stderr, code });
         return;
       }
@@ -716,13 +774,7 @@ function buildRootItems(workspaceRoot) {
     });
   }
   if (fs.existsSync(leakageReportFile)) {
-    items.push({
-      type: 'artifact',
-      label: 'Latest leakage report',
-      description: '.codemosaic/leakage-report.json',
-      filePath: leakageReportFile,
-      icon: 'pulse'
-    });
+    items.push(buildLeakageArtifactItem(leakageReportFile));
   }
   if (fs.existsSync(segmentPlanFile)) {
     items.push({
@@ -918,6 +970,99 @@ async function pickFile(title) {
     canSelectMany: false
   });
   return result && result.length ? result[0].fsPath : null;
+}
+
+function readJsonFileSafe(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function buildLeakageArtifactItem(filePath) {
+  const report = readJsonFileSafe(filePath);
+  const totalScore = report && report.summary && typeof report.summary.total_score === 'number'
+    ? report.summary.total_score
+    : null;
+  const topFiles = report && report.summary && Array.isArray(report.summary.highest_risk_files)
+    ? report.summary.highest_risk_files
+    : [];
+  if (report && report.budget && typeof report.budget.passed === 'boolean') {
+    const blocked = !report.budget.passed;
+    const topFile = topFiles.length ? ` ? top ${topFiles[0]}` : '';
+    return {
+      type: 'artifact',
+      label: blocked ? 'Leakage gate: BLOCKED' : 'Leakage gate: PASS',
+      description: totalScore === null ? '.codemosaic/leakage-report.json' : `score ${totalScore}${topFile}`,
+      filePath,
+      icon: blocked ? 'warning' : 'pass'
+    };
+  }
+  return {
+    type: 'artifact',
+    label: 'Latest leakage report',
+    description: totalScore === null ? '.codemosaic/leakage-report.json' : `score ${totalScore}`,
+    filePath,
+    icon: 'pulse'
+  };
+}
+
+function summarizeLeakageReport(report) {
+  if (!report || typeof report !== 'object') {
+    return null;
+  }
+  const summary = report.summary && typeof report.summary === 'object' ? report.summary : {};
+  const totalScore = typeof summary.total_score === 'number' ? summary.total_score : null;
+  const highestRiskFiles = Array.isArray(summary.highest_risk_files) ? summary.highest_risk_files.slice(0, 3) : [];
+  const budget = report.budget && typeof report.budget === 'object' ? report.budget : null;
+  const messages = budget && Array.isArray(budget.messages) ? budget.messages.slice(0, 3) : [];
+  return { totalScore, highestRiskFiles, budget, messages };
+}
+
+async function showLeakageOutcome(reportFile, options = {}) {
+  const report = readJsonFileSafe(reportFile);
+  const summary = summarizeLeakageReport(report);
+  if (!summary) {
+    vscode.window.showInformationMessage(options.successMessage || `CodeMosaic leakage report ready: ${reportFile}`);
+    if (options.openOnSuccess) {
+      openIfExists(reportFile);
+    }
+    return;
+  }
+  if (!summary.budget) {
+    const scoreLabel = summary.totalScore === null ? '' : ` (score ${summary.totalScore})`;
+    const action = await vscode.window.showInformationMessage(
+      `${options.successMessage || 'CodeMosaic leakage report ready.'}${scoreLabel}`,
+      'Open report'
+    );
+    if (action === 'Open report' || options.openOnSuccess) {
+      openIfExists(reportFile);
+    }
+    return;
+  }
+  const topFilesLabel = summary.highestRiskFiles.length ? ` Top risk: ${summary.highestRiskFiles.join(', ')}` : '';
+  if (summary.budget.passed) {
+    const action = await vscode.window.showInformationMessage(
+      `Leakage gate passed.${summary.totalScore === null ? '' : ` Score ${summary.totalScore}.`}${topFilesLabel}`,
+      'Open report'
+    );
+    if (action === 'Open report' || options.openOnSuccess) {
+      openIfExists(reportFile);
+    }
+    return;
+  }
+  const reason = summary.messages.length ? ` ${summary.messages[0]}.` : '';
+  const action = await vscode.window.showWarningMessage(
+    `${options.blockedMessage || 'Leakage gate blocked this export.'}${reason}${topFilesLabel}`,
+    'Open report'
+  );
+  if (action === 'Open report') {
+    openIfExists(reportFile);
+  }
 }
 
 function openIfExists(targetPath) {
