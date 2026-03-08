@@ -20,6 +20,7 @@ class BootstrapRepositoryTests(unittest.TestCase):
             )
             self.assertTrue((target / '.gitattributes').exists())
             self.assertTrue((target / 'RELEASE_CHECKLIST.md').exists())
+            self.assertTrue((target / 'CHANGELOG.md').exists())
             self.assertTrue((target / '.github' / 'RELEASE_TEMPLATE.md').exists())
             self.assertTrue((target / '.github' / 'ISSUE_TEMPLATE' / 'bug_report.md').exists())
             self.assertTrue((target / '.github' / 'ISSUE_TEMPLATE' / 'feature_request.md').exists())

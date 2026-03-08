@@ -27,7 +27,9 @@
           and blocks exports that still reveal too much business meaning.
         </p>
         <div class="hero-actions">
-          <a class="button primary" href="../../README.md">Read the README</a>
+          <a class="button primary" href="https://github.com/Alexxigang/codemosaic">GitHub Repository</a>
+          <a class="button secondary" href="https://github.com/Alexxigang/codemosaic/releases">Releases</a>
+          <a class="button secondary" href="../../README.md">Read the README</a>
           <a class="button secondary" href="../landing-page.md">Open product brief</a>
         </div>
         <ul class="hero-points">
@@ -132,6 +134,26 @@
       </div>
       <div class="visual card">
         <img src="./assets/vscode-runs-view.svg" alt="CodeMosaic VS Code runs view" />
+      </div>
+    </section>
+
+    <section class="section alt two-col">
+      <div>
+        <p class="section-label">Get Started</p>
+        <h2>Pick the path that fits your audience.</h2>
+        <ul class="clean-list">
+          <li><strong>Developers:</strong> clone the repo and run the CLI locally</li>
+          <li><strong>Evaluators:</strong> install the VSIX from Releases and run the demo workflow</li>
+          <li><strong>Security reviewers:</strong> open `docs/leakage-gate.md`, `docs/landing-page.md`, and `RELEASE_CHECKLIST.md`</li>
+        </ul>
+      </div>
+      <div class="card code-card">
+        <h3>Install path</h3>
+        <pre><code>python scripts/package_vscode_extension.py --overwrite
+# or download a VSIX from GitHub Releases
+
+python scripts/generate_release_assets.py --encrypt-mapping --clean</code></pre>
+        <p>Use the generated VSIX for editor demos and the release assets for product-facing walkthroughs.</p>
       </div>
     </section>
 

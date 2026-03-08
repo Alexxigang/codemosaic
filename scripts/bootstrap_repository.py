@@ -27,6 +27,25 @@ DEFAULT_RELEASE_CHECKLIST = """# Release Checklist
 - [ ] Publish GitHub Release notes
 """
 
+DEFAULT_CHANGELOG = """# Changelog
+
+All notable changes to this project are documented in this file.
+
+## Unreleased
+
+### Added
+- Describe new product capabilities here
+
+### Changed
+- Describe notable behavior or positioning changes here
+
+## v0.1.0
+
+### Added
+- Initial release
+"""
+
+
 DEFAULT_RELEASE_NOTES = """# Release Notes Template
 
 ## Highlights
@@ -74,6 +93,7 @@ def bootstrap_repository(target_root: Path, init_git: bool = False) -> None:
     ensure_file_contains(target_root / '.gitattributes', DEFAULT_GITATTRIBUTES)
     ensure_file_contains(target_root / '.gitignore', 'dist/\n.vscode/\n')
     ensure_file(target_root / 'RELEASE_CHECKLIST.md', DEFAULT_RELEASE_CHECKLIST)
+    ensure_file(target_root / 'CHANGELOG.md', DEFAULT_CHANGELOG)
     ensure_file(target_root / '.github' / 'RELEASE_TEMPLATE.md', DEFAULT_RELEASE_NOTES)
     ensure_file(
         target_root / '.github' / 'ISSUE_TEMPLATE' / 'bug_report.md',

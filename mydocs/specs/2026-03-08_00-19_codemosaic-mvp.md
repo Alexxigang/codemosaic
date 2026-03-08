@@ -197,3 +197,19 @@
   - 后续可直接接 GitHub Pages、产品介绍页或演示入口
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 51/51 OK
+
+## 13. 2026-03-08 Release Prep Package Update
+- Research Summary: 站点和页面已经就绪，但仓库根目录还需要完整的发布准备包与默认模板，方便持续迭代和对外发版。
+- Decision: 新增根目录 `RELEASE_CHECKLIST.md` 与 `CHANGELOG.md`，同步 bootstrap 模板，并给静态站点增加 GitHub / Releases CTA。
+- Execute:
+  - `RELEASE_CHECKLIST.md`: 发布前、中、后检查项
+  - `CHANGELOG.md`: 初始变更记录模板
+  - `scripts/bootstrap_repository.py`: 默认生成 `CHANGELOG.md`
+  - `docs/site/index.html`: 增加 GitHub / Releases / install CTA
+  - `tests/test_release_files.py`: 校验发布文件与站点 CTA
+  - `tests/test_bootstrap_repository.py`: 校验 bootstrap 产出 `CHANGELOG.md`
+- Product Impact:
+  - 仓库具备更完整的“发布准备包”
+  - 对外展示页具备更明确的下载和跳转入口
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 53/53 OK
