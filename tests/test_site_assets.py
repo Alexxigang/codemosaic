@@ -19,6 +19,7 @@ class SiteAssetsTests(unittest.TestCase):
         content = workflow.read_text(encoding='utf-8')
         self.assertIn('actions/deploy-pages@v4', content)
         self.assertIn('path: docs/site', content)
+        self.assertIn('python scripts/build_site.py --clean-assets', content)
 
 
 if __name__ == '__main__':

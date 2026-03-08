@@ -213,3 +213,17 @@
   - 对外展示页具备更明确的下载和跳转入口
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 53/53 OK
+
+## 14. 2026-03-08 Reproducible Site Build Update
+- Research Summary: `docs/site/` 已能发布，但图片素材仍是手工同步，长期维护容易漂移。
+- Decision: 新增 `scripts/build_site.py`，在 Pages workflow 中构建站点素材，保证发布流程可重复。
+- Execute:
+  - `scripts/build_site.py`: 同步 demo 视觉素材并生成 `.nojekyll`
+  - `.github/workflows/deploy-pages.yml`: 发布前运行 `python scripts/build_site.py --clean-assets`
+  - `tests/test_site_build.py`: 校验 site build 脚本输出
+  - `tests/test_site_assets.py`: 校验 workflow 已接入 build script
+- Product Impact:
+  - 静态产品页具备可重复构建能力
+  - 降低站点素材与主仓素材不一致的维护风险
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 54/54 OK
