@@ -1,0 +1,44 @@
+﻿paths:
+  include:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.java"
+    - "**/*.go"
+    - "**/*.rs"
+  exclude:
+    - ".git/**"
+    - ".codemosaic/**"
+    - "node_modules/**"
+    - "dist/**"
+    - "build/**"
+    - "coverage/**"
+identifiers:
+  enabled: true
+  preserve:
+    - self
+    - cls
+    - __name__
+    - main
+strings:
+  enabled: true
+  redact_patterns:
+    - url
+    - email
+    - phone
+    - secret
+comments:
+  mode: placeholder
+workspace:
+  copy_unmatched: false
+mapping:
+  require_encryption: false
+  encryption_provider: prototype-v1
+  rules:
+    src/secret/**:
+      require_encryption: true
+      encryption_provider: aesgcm-v1
+    tests/fixtures/**:
+      require_encryption: false

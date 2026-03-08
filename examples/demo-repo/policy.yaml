@@ -1,0 +1,11 @@
+paths:
+  include:
+    - "**/*.py"
+    - "**/*.ts"
+  exclude:
+    - ".git/**"
+    - ".codemosaic/**"
+comments:
+  mode: placeholder
+workspace:
+  copy_unmatched: true

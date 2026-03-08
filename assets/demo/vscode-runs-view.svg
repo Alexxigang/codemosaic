@@ -1,0 +1,24 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#1e1e1e"/>
+  <rect x="40" y="40" width="270" height="720" fill="#252526"/>
+  <text x="70" y="90" fill="#cccccc" font-size="26" font-family="Segoe UI, Arial">EXPLORER</text>
+  <text x="70" y="140" fill="#ffffff" font-size="24" font-family="Segoe UI, Arial">CodeMosaic Runs</text>
+  <text x="90" y="200" fill="#9cdcfe" font-size="22" font-family="Segoe UI, Arial">Latest scan report</text>
+  <text x="90" y="245" fill="#9cdcfe" font-size="22" font-family="Segoe UI, Arial">Latest AI bundle</text>
+  <text x="90" y="300" fill="#dcdcaa" font-size="22" font-family="Segoe UI, Arial">20260308-113000</text>
+  <text x="115" y="340" fill="#cccccc" font-size="20" font-family="Segoe UI, Arial">mapping.enc.json</text>
+  <text x="115" y="375" fill="#cccccc" font-size="20" font-family="Segoe UI, Arial">report.json</text>
+  <text x="115" y="410" fill="#cccccc" font-size="20" font-family="Segoe UI, Arial">repo.masked</text>
+  <rect x="340" y="40" width="820" height="720" fill="#1e1e1e" stroke="#333"/>
+  <text x="380" y="90" fill="#ffffff" font-size="28" font-family="Segoe UI, Arial">CodeMosaic Quick Workflow</text>
+  <rect x="380" y="140" width="420" height="55" rx="10" fill="#094771"/>
+  <text x="410" y="176" fill="#ffffff" font-size="22" font-family="Segoe UI, Arial">Scan workspace</text>
+  <rect x="380" y="210" width="420" height="55" rx="10" fill="#2d2d30"/>
+  <text x="410" y="246" fill="#cccccc" font-size="22" font-family="Segoe UI, Arial">Mask workspace</text>
+  <rect x="380" y="280" width="420" height="55" rx="10" fill="#2d2d30"/>
+  <text x="410" y="316" fill="#cccccc" font-size="22" font-family="Segoe UI, Arial">Build AI bundle</text>
+  <rect x="380" y="350" width="420" height="55" rx="10" fill="#2d2d30"/>
+  <text x="410" y="386" fill="#cccccc" font-size="22" font-family="Segoe UI, Arial">Open latest mapping</text>
+  <text x="380" y="470" fill="#8b949e" font-size="22" font-family="Consolas, monospace">Status bar: $(shield) CodeMosaic</text>
+  <text x="380" y="520" fill="#8b949e" font-size="22" font-family="Consolas, monospace">Click to open the most common privacy workflow actions.</text>
+</svg>

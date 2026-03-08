@@ -1,0 +1,194 @@
+{
+  "name": "codemosaic-vscode",
+  "displayName": "CodeMosaic",
+  "description": "VS Code prototype extension for the CodeMosaic local code privacy workflow.",
+  "version": "0.1.0",
+  "publisher": "codemosaic",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onView:codemosaicRuns",
+    "onCommand:codemosaic.quickWorkflow",
+    "onCommand:codemosaic.scanWorkspace",
+    "onCommand:codemosaic.maskWorkspace",
+    "onCommand:codemosaic.planSegments",
+    "onCommand:codemosaic.bundleMaskedWorkspace",
+    "onCommand:codemosaic.maskSegmentedWorkspace",
+    "onCommand:codemosaic.unmaskPatch",
+    "onCommand:codemosaic.rekeyMapping",
+    "onCommand:codemosaic.rekeyRecentRuns",
+    "onCommand:codemosaic.showEncryptionProviders",
+    "onCommand:codemosaic.applyPatch",
+    "onCommand:codemosaic.refreshRuns",
+    "onCommand:codemosaic.openRunArtifact"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codemosaic.quickWorkflow",
+        "title": "CodeMosaic: Quick Workflow"
+      },
+      {
+        "command": "codemosaic.scanWorkspace",
+        "title": "CodeMosaic: Scan Workspace"
+      },
+      {
+        "command": "codemosaic.maskWorkspace",
+        "title": "CodeMosaic: Mask Workspace"
+      },
+      {
+        "command": "codemosaic.planSegments",
+        "title": "CodeMosaic: Plan Segments"
+      },
+      {
+        "command": "codemosaic.bundleMaskedWorkspace",
+        "title": "CodeMosaic: Build AI Bundle"
+      },
+      {
+        "command": "codemosaic.maskSegmentedWorkspace",
+        "title": "CodeMosaic: Mask Segmented Workspace"
+      },
+      {
+        "command": "codemosaic.unmaskPatch",
+        "title": "CodeMosaic: Unmask Patch"
+      },
+      {
+        "command": "codemosaic.rekeyMapping",
+        "title": "CodeMosaic: Rekey Mapping"
+      },
+      {
+        "command": "codemosaic.rekeyRecentRuns",
+        "title": "CodeMosaic: Rekey Recent Runs"
+      },
+      {
+        "command": "codemosaic.showEncryptionProviders",
+        "title": "CodeMosaic: Show Encryption Providers"
+      },
+      {
+        "command": "codemosaic.applyPatch",
+        "title": "CodeMosaic: Apply Patch"
+      },
+      {
+        "command": "codemosaic.refreshRuns",
+        "title": "CodeMosaic: Refresh Runs"
+      },
+      {
+        "command": "codemosaic.openRunArtifact",
+        "title": "CodeMosaic: Open Artifact"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "codemosaicRuns",
+          "name": "CodeMosaic Runs"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "codemosaic.refreshRuns",
+          "when": "view == codemosaicRuns",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "codemosaic.openRunArtifact",
+          "when": "view == codemosaicRuns && viewItem == codemosaicArtifact",
+          "group": "inline"
+        },
+        {
+          "command": "codemosaic.rekeyMapping",
+          "when": "view == codemosaicRuns && viewItem == codemosaicMappingArtifact",
+          "group": "inline@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "codemosaic.quickWorkflow",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.rekeyMapping",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.showEncryptionProviders",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.rekeyRecentRuns",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.planSegments",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.maskSegmentedWorkspace",
+          "when": "workspaceFolderCount != 0"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeMosaic",
+      "properties": {
+        "codemosaic.cliCommand": {
+          "type": "string",
+          "default": "python",
+          "description": "Executable used to launch CodeMosaic, usually python or python3."
+        },
+        "codemosaic.cliArgs": {
+          "type": "array",
+          "default": [
+            "-m",
+            "codemosaic"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments inserted after the CLI executable and before the CodeMosaic subcommand."
+        },
+        "codemosaic.policyPath": {
+          "type": "string",
+          "default": "policy.sample.yaml",
+          "description": "Relative or absolute policy path passed to CodeMosaic when available."
+        },
+        "codemosaic.defaultPassphraseEnv": {
+          "type": "string",
+          "default": "CODEMOSAIC_PASSPHRASE",
+          "description": "Default environment variable name used when encrypted mappings are enabled."
+        },
+        "codemosaic.bundle.maxFiles": {
+          "type": "number",
+          "default": 20,
+          "description": "Default file cap for AI bundle export."
+        },
+        "codemosaic.bundle.maxChars": {
+          "type": "number",
+          "default": 12000,
+          "description": "Default per-file character cap for AI bundle export."
+        },
+        "codemosaic.statusBar.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a CodeMosaic status bar shortcut for quick workflows."
+        },
+        "codemosaic.encryptionProvider": {
+          "type": "string",
+          "default": "prototype-v1",
+          "description": "Mapping encryption provider to use for new encrypted mappings and rekey operations."
+        }
+      }
+    }
+  }
+}

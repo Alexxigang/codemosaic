@@ -1,0 +1,4 @@
+.codemosaic/
+*.masked/
+__pycache__/
+.pytest_cache/
