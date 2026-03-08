@@ -1,0 +1,197 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeMosaic — AI Code Privacy Gateway</title>
+  <meta name="description" content="CodeMosaic helps teams use external AI coding tools without sending raw proprietary code outside the workstation boundary." />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav">
+      <div class="brand">CodeMosaic</div>
+      <div class="nav-links">
+        <a href="#problem">Problem</a>
+        <a href="#solution">Solution</a>
+        <a href="#differentiators">Why It Stands Out</a>
+        <a href="#demo">Demo</a>
+      </div>
+    </nav>
+    <div class="hero-content">
+      <div class="hero-copy">
+        <p class="eyebrow">AI Code Privacy Gateway</p>
+        <h1>Use external AI coding tools without shipping raw proprietary code.</h1>
+        <p class="lede">
+          CodeMosaic masks code before export, keeps reversible mappings local, measures semantic leakage after masking,
+          and blocks exports that still reveal too much business meaning.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="../../README.md">Read the README</a>
+          <a class="button secondary" href="../landing-page.md">Open product brief</a>
+        </div>
+        <ul class="hero-points">
+          <li>Local-first masking workflow</li>
+          <li>Semantic leakage analysis after masking</li>
+          <li>Leakage Budget Gate before export</li>
+          <li>CLI + VS Code + demo assets in one story</li>
+        </ul>
+      </div>
+      <div class="hero-visual card">
+        <img src="./assets/safe-export-gate.svg" alt="CodeMosaic safe export gate diagram" />
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="problem" class="section two-col">
+      <div>
+        <p class="section-label">The Problem</p>
+        <h2>Teams are stuck between AI leverage and code exposure risk.</h2>
+        <p>
+          Most teams want the productivity benefit of external AI coding tools, but do not want to paste internal APIs,
+          proprietary business logic, or secret-bearing source files into third-party systems.
+        </p>
+        <p>
+          The real question is not just <em>“did we hide the secrets?”</em>. It is also <em>“after masking, is this code still safe enough to send?”</em>
+        </p>
+      </div>
+      <div class="card checklist">
+        <h3>What a usable solution must do</h3>
+        <ul>
+          <li>Preserve enough structure for AI to remain helpful</li>
+          <li>Hide sensitive names, strings, and comments</li>
+          <li>Support reversible patch workflows</li>
+          <li>Keep the mapping vault local</li>
+          <li>Decide whether masked code may be exported</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="solution" class="section">
+      <p class="section-label">The Solution</p>
+      <h2>CodeMosaic adds a policy gate to the masking workflow.</h2>
+      <div class="steps">
+        <div class="step card">
+          <span class="step-index">1</span>
+          <h3>Prepare</h3>
+          <p>Scan and mask a workspace before any code leaves the machine.</p>
+        </div>
+        <div class="step card">
+          <span class="step-index">2</span>
+          <h3>Evaluate</h3>
+          <p>Run semantic leakage analysis to estimate how much business meaning still remains.</p>
+        </div>
+        <div class="step card">
+          <span class="step-index">3</span>
+          <h3>Govern</h3>
+          <p>Use Leakage Budget Gate to allow or block exports based on policy thresholds.</p>
+        </div>
+        <div class="step card">
+          <span class="step-index">4</span>
+          <h3>Close the loop</h3>
+          <p>Translate masked AI patches back to original code and apply them safely.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="differentiators" class="section alt">
+      <p class="section-label">Why It Stands Out</p>
+      <h2>Not just redaction. Export governance.</h2>
+      <div class="grid three">
+        <article class="card feature">
+          <h3>Reversible closed loop</h3>
+          <p><code>mask -&gt; AI -&gt; patch -&gt; unmask/apply</code> keeps the workflow practical, not theoretical.</p>
+        </article>
+        <article class="card feature">
+          <h3>Semantic leakage analysis</h3>
+          <p>Measures what business meaning still leaks after masking, not only what looked secret before masking.</p>
+        </article>
+        <article class="card feature">
+          <h3>Leakage Budget Gate</h3>
+          <p>Blocks unsafe exports locally before masked code leaves the workstation boundary.</p>
+        </article>
+        <article class="card feature">
+          <h3>Policy-driven segmentation</h3>
+          <p>Apply different rules to different paths and split masking runs into governed segments.</p>
+        </article>
+        <article class="card feature">
+          <h3>VS Code safe export UX</h3>
+          <p>Developers can trigger safe export directly in the editor and see gate outcomes in the Runs view.</p>
+        </article>
+        <article class="card feature">
+          <h3>Demo and release ready</h3>
+          <p>The repository already includes a demo repo, release assets, and launch-ready visuals.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section visual-strip">
+      <div class="visual card">
+        <img src="./assets/workflow-overview.svg" alt="CodeMosaic workflow overview" />
+      </div>
+      <div class="visual card">
+        <img src="./assets/vscode-runs-view.svg" alt="CodeMosaic VS Code runs view" />
+      </div>
+    </section>
+
+    <section id="demo" class="section two-col">
+      <div>
+        <p class="section-label">3-Minute Demo</p>
+        <h2>Show both outcomes: normal bundle and blocked safe export.</h2>
+        <ol class="demo-flow">
+          <li>Run <code>Scan Workspace</code></li>
+          <li>Run <code>Mask Workspace</code></li>
+          <li>Open <code>Analyze Semantic Leakage</code></li>
+          <li>Generate a normal AI bundle</li>
+          <li>Run <code>Safe Export Bundle</code></li>
+          <li>Show the gate decision and top-risk file</li>
+          <li>Open the Runs view and point at <code>Leakage gate: BLOCKED</code></li>
+        </ol>
+      </div>
+      <div class="card code-card">
+        <h3>Safe export command</h3>
+        <pre><code>python -m codemosaic bundle ./your-repo.masked \
+  --policy policy.sample.yaml \
+  --output ai-bundle.md \
+  --leakage-report leakage-report.json \
+  --fail-on-threshold</code></pre>
+        <p>If the leakage budget is exceeded, CodeMosaic exits with code <code>3</code> and does not generate the bundle.</p>
+      </div>
+    </section>
+
+    <section class="section alt two-col">
+      <div>
+        <p class="section-label">Ideal Users</p>
+        <h2>Built for teams adopting external AI carefully.</h2>
+        <ul class="clean-list">
+          <li>Teams with private repositories and external AI coding workflows</li>
+          <li>Security-conscious engineering orgs that want a local-first starting point</li>
+          <li>Companies that are not ready for a full enterprise DLP or self-hosted model stack</li>
+        </ul>
+      </div>
+      <div>
+        <p class="section-label">Open Source Direction</p>
+        <h2>What exists now, and what comes next.</h2>
+        <ul class="clean-list">
+          <li>Now: local masking, encrypted mappings, leakage analysis, export gating, VS Code prototype</li>
+          <li>Next: stronger AST masking, richer policy review UX, CI governance recipes, more polished IDE experience</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p><strong>CodeMosaic</strong> helps teams use external AI coding tools without giving up control over what their code reveals.</p>
+    <p>
+      <a href="../../README.md">README</a>
+      <span>·</span>
+      <a href="../landing-page.md">Product brief</a>
+      <span>·</span>
+      <a href="../demo-walkthrough.md">Demo walkthrough</a>
+      <span>·</span>
+      <a href="../release-playbook.md">Release playbook</a>
+    </p>
+  </footer>
+</body>
+</html>

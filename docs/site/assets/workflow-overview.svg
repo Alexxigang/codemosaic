@@ -1,0 +1,21 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0b1020"/>
+  <text x="60" y="80" fill="#ffffff" font-size="34" font-family="Segoe UI, Arial">CodeMosaic Workflow Overview</text>
+  <rect x="60" y="150" width="220" height="110" rx="16" fill="#1f6feb"/>
+  <text x="110" y="210" fill="#fff" font-size="28" font-family="Segoe UI, Arial">Scan</text>
+  <rect x="340" y="150" width="220" height="110" rx="16" fill="#238636"/>
+  <text x="392" y="210" fill="#fff" font-size="28" font-family="Segoe UI, Arial">Mask</text>
+  <rect x="620" y="150" width="220" height="110" rx="16" fill="#8957e5"/>
+  <text x="665" y="210" fill="#fff" font-size="28" font-family="Segoe UI, Arial">Bundle</text>
+  <rect x="900" y="150" width="220" height="110" rx="16" fill="#db6d28"/>
+  <text x="920" y="210" fill="#fff" font-size="28" font-family="Segoe UI, Arial">Unmask & Apply</text>
+  <path d="M280 205 H340" stroke="#8b949e" stroke-width="8"/>
+  <path d="M560 205 H620" stroke="#8b949e" stroke-width="8"/>
+  <path d="M840 205 H900" stroke="#8b949e" stroke-width="8"/>
+  <rect x="90" y="360" width="1020" height="320" rx="18" fill="#161b22" stroke="#30363d"/>
+  <text x="130" y="420" fill="#c9d1d9" font-size="24" font-family="Consolas, monospace">External AI receives masked code only</text>
+  <text x="130" y="470" fill="#8b949e" font-size="22" font-family="Consolas, monospace">- Local mapping vault stays on the developer machine</text>
+  <text x="130" y="515" fill="#8b949e" font-size="22" font-family="Consolas, monospace">- Optional encrypted mapping protects stored placeholders</text>
+  <text x="130" y="560" fill="#8b949e" font-size="22" font-family="Consolas, monospace">- VS Code runs explorer shows scan reports, bundles, mappings, and reports</text>
+  <text x="130" y="605" fill="#8b949e" font-size="22" font-family="Consolas, monospace">- Patch translation restores original tokens before git apply</text>
+</svg>

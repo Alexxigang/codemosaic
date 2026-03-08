@@ -180,3 +180,20 @@
   - 便于后续迁移到 GitHub Pages、博客或发布平台文案
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 49/49 OK
+
+## 12. 2026-03-08 Static Site & GitHub Pages Update
+- Research Summary: 仓库已经有 README 与产品文案，但还缺一个可以直接部署到 GitHub Pages 的静态首页，用于对外展示与传播。
+- Decision: 新增 `docs/site/` 静态产品页、同步站内素材，并增加 `deploy-pages.yml` 自动部署工作流。
+- Execute:
+  - `docs/site/index.html`: 静态产品首页
+  - `docs/site/style.css`: 页面样式
+  - `docs/site/assets/*.svg`: 展示图复制到 Pages 可发布目录
+  - `docs/site/.nojekyll`: 关闭 Jekyll 处理
+  - `.github/workflows/deploy-pages.yml`: Pages 自动部署
+  - `tests/test_site_assets.py`: 校验站点文件与 workflow 存在
+  - `README.md`: 索引中加入 `docs/site/index.html`
+- Product Impact:
+  - 项目具备“可直接对外展示”的静态首页
+  - 后续可直接接 GitHub Pages、产品介绍页或演示入口
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 51/51 OK

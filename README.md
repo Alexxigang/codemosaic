@@ -280,6 +280,7 @@ python scripts/package_vscode_extension.py --overwrite
 - `docs/demo-walkthrough.md`
 - `docs/release-playbook.md`
 - `docs/landing-page.md`
+- `docs/site/index.html`
 - `examples/demo-repo/README.md`
 - `scripts/generate_release_assets.py`
 - `dist/release-assets/release-page.md`
