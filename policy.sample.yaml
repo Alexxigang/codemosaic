@@ -1,4 +1,4 @@
-﻿paths:
+paths:
   include:
     - "**/*.py"
     - "**/*.ts"
@@ -35,11 +35,15 @@ workspace:
   copy_unmatched: false
 mapping:
   require_encryption: false
-  encryption_provider: prototype-v1
+  encryption_provider: managed-v1
+  key_management:
+    source: env
+    reference: CODEMOSAIC_MAPPING_KEY
+    key_id: team-dev-2026q1
   rules:
     src/secret/**:
       require_encryption: true
-      encryption_provider: aesgcm-v1
+      encryption_provider: managed-v1
     tests/fixtures/**:
       require_encryption: false
 leakage:

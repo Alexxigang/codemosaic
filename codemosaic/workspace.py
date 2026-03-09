@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import shutil
@@ -27,6 +27,7 @@ DEFAULT_EXCLUDES = {
 }
 
 
+
 def mask_workspace(
     source_root: Path,
     output_root: Path,
@@ -34,6 +35,7 @@ def mask_workspace(
     run_id: str | None = None,
     mapping_passphrase: str | None = None,
     mapping_encryption_provider: str | None = None,
+    mapping_key_metadata: dict[str, object] | None = None,
 ) -> RunReport:
     effective_mapping = resolve_workspace_mapping_policy(
         source_root,
@@ -43,7 +45,7 @@ def mask_workspace(
         provider_override=mapping_encryption_provider,
     )
     if effective_mapping.require_encryption and not mapping_passphrase:
-        raise ValueError('policy requires encrypted mapping; provide --passphrase-env or --passphrase-file')
+        raise ValueError('policy requires encrypted mapping; provide --key-env/--key-file or --passphrase-env/--passphrase-file')
     selected_provider = effective_mapping.encryption_provider or DEFAULT_PROVIDER_ID
     run_name = run_id or datetime.now().strftime('%Y%m%d-%H%M%S')
     vault = MappingVault()
@@ -104,6 +106,8 @@ def mask_workspace(
         'policy_require_encryption': effective_mapping.require_encryption,
         'policy_matched_mapping_rules': list(effective_mapping.matched_patterns),
     }
+    if mapping_key_metadata:
+        metadata['key_management'] = dict(mapping_key_metadata)
     vault.save(
         mapping_path,
         metadata=metadata,

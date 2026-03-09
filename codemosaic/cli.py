@@ -1,20 +1,20 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 
 from codemosaic.bundles import build_markdown_bundle
 from codemosaic.crypto import describe_mapping_crypto_providers
+from codemosaic.key_management import KeyManagementConfig, generate_mapping_key, resolve_key_material
 from codemosaic.leakage import evaluate_leakage_budget, has_leakage_budget, leakage_report, write_leakage_report
 from codemosaic.mapping import rewrap_mapping_file
 from codemosaic.patching import apply_patch_file, translate_patch_file
-from codemosaic.policy import load_policy
+from codemosaic.policy import MaskPolicy, load_policy
 from codemosaic.runs import rekey_run_mappings
 from codemosaic.scanning import scan_workspace
 from codemosaic.segmentation import mask_segmented_workspace, plan_mask_segments, write_segment_plan
-from codemosaic.workspace import mask_workspace
+from codemosaic.workspace import mask_workspace, resolve_workspace_mapping_policy
 
 
 LEAKAGE_BUDGET_EXIT_CODE = 3
@@ -32,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     mask_parser.add_argument('--run-id', type=str, default=None)
     mask_parser.add_argument('--encrypt-mapping', action='store_true')
     mask_parser.add_argument('--encryption-provider', type=str, default=None)
-    _add_passphrase_arguments(mask_parser)
+    _add_key_material_arguments(mask_parser)
 
     segmented_parser = subparsers.add_parser('mask-segmented', help='Generate multiple masked workspaces grouped by policy segments')
     segmented_parser.add_argument('source', type=Path)
@@ -41,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     segmented_parser.add_argument('--run-id-prefix', type=str, default=None)
     segmented_parser.add_argument('--encrypt-mapping', action='store_true')
     segmented_parser.add_argument('--encryption-provider', type=str, default=None)
-    _add_passphrase_arguments(segmented_parser)
+    _add_key_material_arguments(segmented_parser)
 
     segment_plan_parser = subparsers.add_parser('plan-segments', help='Preview masking segments derived from policy rules')
     segment_plan_parser.add_argument('source', type=Path)
@@ -72,7 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     unmask_parser.add_argument('patch', type=Path)
     unmask_parser.add_argument('--mapping', type=Path, required=True)
     unmask_parser.add_argument('--output', type=Path, default=Path('translated.patch'))
-    _add_passphrase_arguments(unmask_parser)
+    _add_key_material_arguments(unmask_parser)
 
     apply_parser = subparsers.add_parser('apply', help='Apply a translated patch with git apply')
     apply_parser.add_argument('patch', type=Path)
@@ -87,8 +87,8 @@ def build_parser() -> argparse.ArgumentParser:
     rekey_parser.add_argument('mapping', type=Path)
     rekey_parser.add_argument('--output', type=Path, default=None)
     rekey_parser.add_argument('--encryption-provider', type=str, default=None)
-    _add_passphrase_arguments(rekey_parser)
-    _add_new_passphrase_arguments(rekey_parser)
+    _add_key_material_arguments(rekey_parser)
+    _add_new_key_material_arguments(rekey_parser)
 
     rekey_runs_parser = subparsers.add_parser(
         'rekey-runs',
@@ -97,8 +97,14 @@ def build_parser() -> argparse.ArgumentParser:
     rekey_runs_parser.add_argument('workspace', type=Path)
     rekey_runs_parser.add_argument('--limit', type=int, default=None)
     rekey_runs_parser.add_argument('--encryption-provider', type=str, default=None)
-    _add_passphrase_arguments(rekey_runs_parser)
-    _add_new_passphrase_arguments(rekey_runs_parser)
+    _add_key_material_arguments(rekey_runs_parser)
+    _add_new_key_material_arguments(rekey_runs_parser)
+
+    generate_key_parser = subparsers.add_parser('generate-key', help='Generate high-entropy mapping key material')
+    generate_key_parser.add_argument('--output', type=Path, default=None)
+    generate_key_parser.add_argument('--format', choices=['base64', 'hex'], default='base64')
+    generate_key_parser.add_argument('--length', type=int, default=32)
+    generate_key_parser.add_argument('--force', action='store_true')
 
     subparsers.add_parser('list-providers', help='List available mapping encryption providers')
     return parser
@@ -113,32 +119,68 @@ def main(argv: list[str] | None = None) -> int:
             source_root = args.source.resolve()
             output_root = (args.output or source_root.with_name(f'{source_root.name}.masked')).resolve()
             policy = load_policy(args.policy.resolve() if args.policy else None)
-            mapping_passphrase = _resolve_passphrase(args, required=args.encrypt_mapping)
+            encryption_requested = args.encrypt_mapping or _has_key_material_inputs(args)
+            effective_mapping = resolve_workspace_mapping_policy(
+                source_root,
+                output_root,
+                policy,
+                encryption_requested=encryption_requested,
+                provider_override=args.encryption_provider,
+            )
+            key_material = _resolve_active_key_material(
+                args,
+                policy,
+                required=effective_mapping.require_encryption or encryption_requested,
+                missing_message=(
+                    'policy requires encrypted mapping; provide --key-env/--key-file, --passphrase-env/--passphrase-file, or policy mapping.key_management'
+                    if effective_mapping.require_encryption and not encryption_requested
+                    else 'encrypted mapping requires --key-env/--key-file, --passphrase-env/--passphrase-file, or policy mapping.key_management'
+                ),
+            )
             report = mask_workspace(
                 source_root,
                 output_root,
                 policy,
                 run_id=args.run_id,
-                mapping_passphrase=mapping_passphrase,
+                mapping_passphrase=key_material.secret,
                 mapping_encryption_provider=args.encryption_provider,
+                mapping_key_metadata=key_material.to_metadata() if key_material.secret else None,
             )
             print(f'masked workspace: {report.output_root}')
             print(f'mapping file: {report.mapping_file}')
-            print(f'report file: {report.report_file}')
+            print(f"report file: {source_root / '.codemosaic' / 'runs' / report.run_id / 'report.json'}")
             return 0
 
         if args.command == 'mask-segmented':
             source_root = args.source.resolve()
             output_root = (args.output or source_root.with_name(f'{source_root.name}.masked.segmented')).resolve()
             policy = load_policy(args.policy.resolve() if args.policy else None)
-            mapping_passphrase = _resolve_passphrase(args, required=args.encrypt_mapping)
+            encryption_requested = args.encrypt_mapping or _has_key_material_inputs(args)
+            effective_mapping = resolve_workspace_mapping_policy(
+                source_root,
+                output_root,
+                policy,
+                encryption_requested=encryption_requested,
+                provider_override=args.encryption_provider,
+            )
+            key_material = _resolve_active_key_material(
+                args,
+                policy,
+                required=effective_mapping.require_encryption or encryption_requested,
+                missing_message=(
+                    'policy requires encrypted mapping; provide --key-env/--key-file, --passphrase-env/--passphrase-file, or policy mapping.key_management'
+                    if effective_mapping.require_encryption and not encryption_requested
+                    else 'encrypted mapping requires --key-env/--key-file, --passphrase-env/--passphrase-file, or policy mapping.key_management'
+                ),
+            )
             result = mask_segmented_workspace(
                 source_root,
                 output_root,
                 policy,
                 run_id_prefix=args.run_id_prefix,
-                mapping_passphrase=mapping_passphrase,
+                mapping_passphrase=key_material.secret,
                 mapping_encryption_provider=args.encryption_provider,
+                mapping_key_metadata=key_material.to_metadata() if key_material.secret else None,
             )
             summary_file = output_root / 'segmented-mask-summary.json'
             summary_file.write_text(json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding='utf-8')
@@ -213,11 +255,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == 'unmask-patch':
+            key_material = _resolve_active_key_material(args, None, required=False)
             output_file = translate_patch_file(
                 args.patch.resolve(),
                 args.mapping.resolve(),
                 args.output.resolve(),
-                passphrase=_resolve_passphrase(args, required=False),
+                passphrase=key_material.secret,
             )
             print(f'translated patch: {output_file}')
             return 0
@@ -236,36 +279,53 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == 'rekey-mapping':
-            new_passphrase = _resolve_new_passphrase(args)
+            current_key = _resolve_active_key_material(args, None, required=False)
+            new_key = _resolve_new_key_material(args)
             output_file = rewrap_mapping_file(
                 args.mapping.resolve(),
                 output_path=args.output.resolve() if args.output else None,
-                passphrase=_resolve_passphrase(args, required=False),
-                new_passphrase=new_passphrase,
+                passphrase=current_key.secret,
+                new_passphrase=new_key.secret,
                 encryption_provider=args.encryption_provider,
+                metadata_overrides=_build_rekey_metadata(new_key, args.encryption_provider),
             )
-            mode = 'encrypted' if new_passphrase else 'plaintext'
+            mode = 'encrypted' if new_key.secret else 'plaintext'
             print(f'rewrapped mapping: {output_file}')
             print(f'output mode: {mode}')
             return 0
 
         if args.command == 'rekey-runs':
-            new_passphrase = _resolve_new_passphrase(args)
+            current_key = _resolve_active_key_material(args, None, required=False)
+            new_key = _resolve_new_key_material(args)
             output_files = rekey_run_mappings(
                 args.workspace.resolve(),
-                passphrase=_resolve_passphrase(args, required=False),
-                new_passphrase=new_passphrase,
+                passphrase=current_key.secret,
+                new_passphrase=new_key.secret,
                 encryption_provider=args.encryption_provider,
                 limit=args.limit,
+                metadata_overrides=_build_rekey_metadata(new_key, args.encryption_provider),
             )
             if not output_files:
                 print('rekeyed runs: 0')
                 return 0
-            mode = 'encrypted' if new_passphrase else 'plaintext'
+            mode = 'encrypted' if new_key.secret else 'plaintext'
             print(f'rekeyed runs: {len(output_files)}')
             print(f'output mode: {mode}')
             for path in output_files:
                 print(str(path))
+            return 0
+
+        if args.command == 'generate-key':
+            key_value = generate_mapping_key(length_bytes=args.length, fmt=args.format)
+            if args.output:
+                output_path = args.output.resolve()
+                if output_path.exists() and not args.force:
+                    raise ValueError(f'output already exists: {output_path}')
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(key_value + '\n', encoding='utf-8')
+                print(f'mapping key file: {output_path}')
+            else:
+                print(key_value)
             return 0
 
         if args.command == 'list-providers':
@@ -309,68 +369,102 @@ def _print_leakage_summary(report: dict[str, object], budget: dict[str, object] 
 
 
 
-def _add_passphrase_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--passphrase-env', type=str, default=None)
-    parser.add_argument('--passphrase-file', type=Path, default=None)
+def _add_key_material_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--key-env', type=str, default=None, help='Preferred: environment variable containing mapping key material')
+    parser.add_argument('--key-file', type=Path, default=None, help='Preferred: file containing mapping key material')
+    parser.add_argument('--key-id', type=str, default=None, help='Optional logical key identifier recorded in mapping metadata')
+    parser.add_argument('--passphrase-env', type=str, default=None, help='Legacy alias for environment-backed mapping secret')
+    parser.add_argument('--passphrase-file', type=Path, default=None, help='Legacy alias for file-backed mapping secret')
 
 
 
-def _add_new_passphrase_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--new-passphrase-env', type=str, default=None)
-    parser.add_argument('--new-passphrase-file', type=Path, default=None)
+def _add_new_key_material_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--new-key-env', type=str, default=None, help='Environment variable containing replacement mapping key material')
+    parser.add_argument('--new-key-file', type=Path, default=None, help='File containing replacement mapping key material')
+    parser.add_argument('--new-key-id', type=str, default=None, help='Logical key identifier for the rewrapped mapping')
+    parser.add_argument('--new-passphrase-env', type=str, default=None, help='Legacy alias for replacement mapping secret')
+    parser.add_argument('--new-passphrase-file', type=Path, default=None, help='Legacy alias for replacement mapping secret file')
 
 
 
-def _resolve_passphrase(args: argparse.Namespace, required: bool) -> str | None:
-    return _resolve_passphrase_pair(
-        env_name=getattr(args, 'passphrase_env', None),
-        file_path=getattr(args, 'passphrase_file', None),
+def _resolve_active_key_material(
+    args: argparse.Namespace,
+    policy: MaskPolicy | None,
+    *,
+    required: bool,
+    missing_message: str = 'encrypted mapping requires --key-env/--key-file, --passphrase-env/--passphrase-file, or policy mapping.key_management',
+):
+    return resolve_key_material(
+        key_env=getattr(args, 'key_env', None),
+        key_file=getattr(args, 'key_file', None),
+        key_id=getattr(args, 'key_id', None),
+        passphrase_env=getattr(args, 'passphrase_env', None),
+        passphrase_file=getattr(args, 'passphrase_file', None),
+        policy=_policy_key_management(policy),
+        policy_base_dir=_policy_base_dir(policy),
         required=required,
-        missing_message='encrypted mapping requires --passphrase-env or --passphrase-file',
-        env_option='--passphrase-env',
-        file_option='--passphrase-file',
-        label='passphrase',
+        missing_message=missing_message,
     )
 
 
 
-def _resolve_new_passphrase(args: argparse.Namespace) -> str | None:
-    return _resolve_passphrase_pair(
-        env_name=getattr(args, 'new_passphrase_env', None),
-        file_path=getattr(args, 'new_passphrase_file', None),
+def _resolve_new_key_material(args: argparse.Namespace):
+    return resolve_key_material(
+        key_env=getattr(args, 'new_key_env', None),
+        key_file=getattr(args, 'new_key_file', None),
+        key_id=getattr(args, 'new_key_id', None),
+        passphrase_env=getattr(args, 'new_passphrase_env', None),
+        passphrase_file=getattr(args, 'new_passphrase_file', None),
+        policy=None,
         required=False,
         missing_message='',
-        env_option='--new-passphrase-env',
-        file_option='--new-passphrase-file',
-        label='new passphrase',
+        key_env_option='--new-key-env',
+        key_file_option='--new-key-file',
+        passphrase_env_option='--new-passphrase-env',
+        passphrase_file_option='--new-passphrase-file',
     )
 
 
 
-def _resolve_passphrase_pair(
-    env_name: str | None,
-    file_path: Path | None,
-    required: bool,
-    missing_message: str,
-    env_option: str,
-    file_option: str,
-    label: str,
-) -> str | None:
-    if env_name and file_path:
-        raise ValueError(f'use either {env_option} or {file_option}, not both')
-    if file_path:
-        value = file_path.resolve().read_text(encoding='utf-8').strip()
-        if not value and required:
-            raise ValueError(f'{label} file is empty')
-        return value or None
-    if env_name:
-        value = os.environ.get(env_name, '').strip()
-        if not value:
-            raise ValueError(f"environment variable '{env_name}' is missing or empty")
-        return value
-    if required:
-        raise ValueError(missing_message)
-    return None
+def _has_key_material_inputs(args: argparse.Namespace) -> bool:
+    return any(
+        getattr(args, name, None)
+        for name in ('key_env', 'key_file', 'passphrase_env', 'passphrase_file')
+    )
+
+
+
+def _policy_key_management(policy: MaskPolicy | None) -> KeyManagementConfig | None:
+    if policy is None:
+        return None
+    mapping_key = policy.mapping.key_management
+    if not mapping_key.source:
+        return None
+    return KeyManagementConfig(
+        source=mapping_key.source,
+        reference=mapping_key.reference,
+        key_id=mapping_key.key_id,
+    )
+
+
+
+def _policy_base_dir(policy: MaskPolicy | None) -> Path | None:
+    if policy is None or not policy.source_path:
+        return None
+    return Path(policy.source_path).resolve().parent
+
+
+
+def _build_rekey_metadata(key_material, encryption_provider: str | None) -> dict[str, object]:
+    if key_material.secret:
+        return {
+            'key_management': key_material.to_metadata(),
+            'encryption_provider': encryption_provider,
+        }
+    return {
+        'key_management': {'enabled': False},
+        'encryption_provider': None,
+    }
 
 
 if __name__ == '__main__':

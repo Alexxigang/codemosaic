@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import base64
 import hashlib
@@ -10,6 +10,7 @@ from typing import Protocol
 
 ENCRYPTED_FORMAT = 'codemosaic-mapping-v1'
 DEFAULT_PROVIDER_ID = 'prototype-v1'
+MANAGED_PROVIDER_ID = 'managed-v1'
 KDF_ITERATIONS = 390000
 AAD = b'codemosaic'
 
@@ -67,6 +68,48 @@ class PrototypeMappingCryptoProvider:
 
 
 @dataclass(frozen=True, slots=True)
+class ManagedKeyMappingCryptoProvider:
+    provider_id: str = MANAGED_PROVIDER_ID
+    algorithm_name: str = 'HKDF-SHA256+HMAC-SHA256-XORSTREAM'
+    source: str = 'built-in'
+
+    def encrypt(self, plaintext: bytes, passphrase: str) -> dict[str, object]:
+        master_key = _decode_managed_key(passphrase)
+        salt = secrets.token_bytes(16)
+        nonce = secrets.token_bytes(16)
+        encryption_key, mac_key = _derive_managed_keys(master_key, salt)
+        ciphertext = _xor_with_keystream(plaintext, encryption_key, nonce)
+        mac = hmac.new(mac_key, AAD + salt + nonce + ciphertext, hashlib.sha256).digest()
+        return {
+            'format': ENCRYPTED_FORMAT,
+            'provider': self.provider_id,
+            'algorithm': self.algorithm_name,
+            'kdf': {
+                'name': 'HKDF-SHA256',
+                'salt_b64': _b64encode(salt),
+            },
+            'nonce_b64': _b64encode(nonce),
+            'ciphertext_b64': _b64encode(ciphertext),
+            'mac_b64': _b64encode(mac),
+        }
+
+    def decrypt(self, payload: dict[str, object], passphrase: str) -> bytes:
+        kdf = payload.get('kdf', {})
+        if not isinstance(kdf, dict):
+            raise ValueError('invalid encrypted mapping metadata')
+        salt = _b64decode(str(kdf.get('salt_b64', '')))
+        nonce = _b64decode(str(payload.get('nonce_b64', '')))
+        ciphertext = _b64decode(str(payload.get('ciphertext_b64', '')))
+        mac = _b64decode(str(payload.get('mac_b64', '')))
+        master_key = _decode_managed_key(passphrase)
+        encryption_key, mac_key = _derive_managed_keys(master_key, salt)
+        expected_mac = hmac.new(mac_key, AAD + salt + nonce + ciphertext, hashlib.sha256).digest()
+        if not hmac.compare_digest(mac, expected_mac):
+            raise ValueError('invalid mapping key or corrupted encrypted mapping')
+        return _xor_with_keystream(ciphertext, encryption_key, nonce)
+
+
+@dataclass(frozen=True, slots=True)
 class AesGcmMappingCryptoProvider:
     provider_id: str = 'aesgcm-v1'
     algorithm_name: str = 'AES-256-GCM+PBKDF2-HMAC-SHA256'
@@ -113,6 +156,7 @@ class AesGcmMappingCryptoProvider:
 def _build_provider_registry() -> dict[str, MappingCryptoProvider]:
     providers: dict[str, MappingCryptoProvider] = {
         DEFAULT_PROVIDER_ID: PrototypeMappingCryptoProvider(),
+        MANAGED_PROVIDER_ID: ManagedKeyMappingCryptoProvider(),
     }
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _  # noqa: F401
@@ -172,6 +216,25 @@ def _derive_keys(passphrase: str, salt: bytes, iterations: int) -> tuple[bytes, 
 
 
 
+def _derive_managed_keys(master_key: bytes, salt: bytes) -> tuple[bytes, bytes]:
+    material = _hkdf_sha256(master_key, salt=salt, info=AAD + b':managed', length=64)
+    return material[:32], material[32:]
+
+
+
+def _hkdf_sha256(input_key_material: bytes, *, salt: bytes, info: bytes, length: int) -> bytes:
+    prk = hmac.new(salt or (b'\x00' * hashlib.sha256().digest_size), input_key_material, hashlib.sha256).digest()
+    output = bytearray()
+    block = b''
+    counter = 1
+    while len(output) < length:
+        block = hmac.new(prk, block + info + bytes([counter]), hashlib.sha256).digest()
+        output.extend(block)
+        counter += 1
+    return bytes(output[:length])
+
+
+
 def _xor_with_keystream(data: bytes, key: bytes, nonce: bytes) -> bytes:
     output = bytearray(len(data))
     counter = 0
@@ -185,6 +248,35 @@ def _xor_with_keystream(data: bytes, key: bytes, nonce: bytes) -> bytes:
         offset += block_length
         counter += 1
     return bytes(output)
+
+
+
+def _decode_managed_key(value: str) -> bytes:
+    normalized = value.strip()
+    if normalized.startswith('base64:'):
+        raw = _urlsafe_b64decode(normalized.removeprefix('base64:'))
+    elif normalized.startswith('hex:'):
+        try:
+            raw = bytes.fromhex(normalized.removeprefix('hex:'))
+        except ValueError as exc:
+            raise ValueError('invalid managed mapping key encoding') from exc
+    else:
+        try:
+            raw = _urlsafe_b64decode(normalized)
+        except ValueError:
+            raw = normalized.encode('utf-8')
+    if len(raw) < 32:
+        raise ValueError('managed mapping key must decode to at least 32 bytes')
+    return raw
+
+
+
+def _urlsafe_b64decode(value: str) -> bytes:
+    padded = value + '=' * (-len(value) % 4)
+    try:
+        return base64.urlsafe_b64decode(padded.encode('ascii'))
+    except Exception as exc:
+        raise ValueError('invalid managed mapping key encoding') from exc
 
 
 

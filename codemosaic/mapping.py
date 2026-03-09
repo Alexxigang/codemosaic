@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
@@ -101,7 +101,7 @@ def load_mapping_payload(path: Path, passphrase: str | None = None) -> dict[str,
     payload = json.loads(path.read_text(encoding='utf-8'))
     if is_encrypted_mapping_payload(payload):
         if not passphrase:
-            raise ValueError('mapping file is encrypted; provide a passphrase via --passphrase-env or --passphrase-file')
+            raise ValueError('mapping file is encrypted; provide a key via --key-env/--key-file or a passphrase via --passphrase-env/--passphrase-file')
         decrypted = get_provider_for_payload(payload).decrypt(payload, passphrase)
         parsed = json.loads(decrypted.decode('utf-8'))
         return parsed if isinstance(parsed, dict) else {}
@@ -120,6 +120,9 @@ def save_mapping_payload(
     if passphrase:
         provider = get_mapping_crypto_provider(encryption_provider)
         envelope = provider.encrypt(serialized.encode('utf-8'), passphrase)
+        header = _build_envelope_header(payload)
+        if header:
+            envelope['header'] = header
         path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding='utf-8')
         return
     path.write_text(serialized, encoding='utf-8')
@@ -132,9 +135,18 @@ def rewrap_mapping_file(
     passphrase: str | None = None,
     new_passphrase: str | None = None,
     encryption_provider: str | None = None,
+    metadata_overrides: dict[str, object] | None = None,
 ) -> Path:
     raw_payload = json.loads(path.read_text(encoding='utf-8'))
     payload = load_mapping_payload(path, passphrase=passphrase)
+    if metadata_overrides:
+        merged_metadata = payload.get('metadata', {})
+        if not isinstance(merged_metadata, dict):
+            merged_metadata = {}
+        merged_metadata = dict(merged_metadata)
+        merged_metadata.update(metadata_overrides)
+        payload = dict(payload)
+        payload['metadata'] = merged_metadata
     destination = output_path or path
     selected_provider = _resolve_output_provider(raw_payload, encryption_provider)
     save_mapping_payload(destination, payload, passphrase=new_passphrase, encryption_provider=selected_provider)
@@ -148,3 +160,28 @@ def _resolve_output_provider(raw_payload: object, encryption_provider: str | Non
     if is_encrypted_mapping_payload(raw_payload):
         return get_provider_for_payload(raw_payload).provider_id
     return DEFAULT_PROVIDER_ID
+
+
+
+def _build_envelope_header(payload: dict[str, object]) -> dict[str, object]:
+    metadata = payload.get('metadata', {})
+    if not isinstance(metadata, dict):
+        return {}
+    key_management = metadata.get('key_management', {})
+    if not isinstance(key_management, dict):
+        key_management = {}
+    header: dict[str, object] = {}
+    if metadata.get('generated_at'):
+        header['generated_at'] = metadata['generated_at']
+    if metadata.get('run_id'):
+        header['run_id'] = metadata['run_id']
+    if metadata.get('encryption_provider'):
+        header['encryption_provider'] = metadata['encryption_provider']
+    safe_key_fields = {
+        key: value
+        for key, value in key_management.items()
+        if key in {'source', 'reference', 'key_id', 'origin'} and value not in (None, '')
+    }
+    if safe_key_fields:
+        header['key_management'] = safe_key_fields
+    return header

@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from codemosaic.crypto import DEFAULT_PROVIDER_ID
+from codemosaic.crypto import DEFAULT_PROVIDER_ID, MANAGED_PROVIDER_ID
 
 
 @dataclass(slots=True)
@@ -44,9 +44,17 @@ class MappingRulePolicy:
 
 
 @dataclass(slots=True)
+class MappingKeyManagementPolicy:
+    source: str | None = None
+    reference: str | None = None
+    key_id: str | None = None
+
+
+@dataclass(slots=True)
 class MappingPolicy:
     require_encryption: bool = False
     encryption_provider: str | None = None
+    key_management: MappingKeyManagementPolicy = field(default_factory=MappingKeyManagementPolicy)
     rules: list[MappingRulePolicy] = field(default_factory=list)
 
 
@@ -87,6 +95,7 @@ class MaskPolicy:
     workspace: WorkspacePolicy = field(default_factory=WorkspacePolicy)
     mapping: MappingPolicy = field(default_factory=MappingPolicy)
     leakage: LeakagePolicy = field(default_factory=LeakagePolicy)
+    source_path: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> 'MaskPolicy':
@@ -127,6 +136,29 @@ class MaskPolicy:
                     if isinstance(mapping, dict) and mapping.get('encryption_provider') is not None
                     else None
                 ),
+                key_management=MappingKeyManagementPolicy(
+                    source=(
+                        str(mapping.get('key_management', {}).get('source'))
+                        if isinstance(mapping, dict)
+                        and isinstance(mapping.get('key_management'), dict)
+                        and mapping.get('key_management', {}).get('source') is not None
+                        else None
+                    ),
+                    reference=(
+                        str(mapping.get('key_management', {}).get('reference'))
+                        if isinstance(mapping, dict)
+                        and isinstance(mapping.get('key_management'), dict)
+                        and mapping.get('key_management', {}).get('reference') is not None
+                        else None
+                    ),
+                    key_id=(
+                        str(mapping.get('key_management', {}).get('key_id'))
+                        if isinstance(mapping, dict)
+                        and isinstance(mapping.get('key_management'), dict)
+                        and mapping.get('key_management', {}).get('key_id') is not None
+                        else None
+                    ),
+                ),
                 rules=_load_mapping_rules(mapping.get('rules', {})) if isinstance(mapping, dict) else [],
             ),
             leakage=LeakagePolicy(
@@ -155,9 +187,12 @@ class MaskPolicy:
             if rule.encryption_provider:
                 matched_specific_providers.add(rule.encryption_provider)
         effective_encryption = require_encryption or encryption_requested
+        default_provider = provider_override or self.mapping.encryption_provider
+        if default_provider is None and self.mapping.key_management.source:
+            default_provider = MANAGED_PROVIDER_ID
         effective_provider = _resolve_policy_provider(
             matched_specific_providers,
-            provider_override or self.mapping.encryption_provider,
+            default_provider,
             effective_encryption,
         )
         if require_encryption and not encryption_requested:
@@ -192,15 +227,17 @@ def load_policy(path: Path | None) -> MaskPolicy:
         return MaskPolicy()
     raw = path.read_text(encoding='utf-8')
     try:
-        return MaskPolicy.from_dict(json.loads(raw))
+        policy = MaskPolicy.from_dict(json.loads(raw))
     except json.JSONDecodeError:
         try:
             parsed = _load_simple_yaml(raw)
         except ValueError as exc:
             raise ValueError(f'failed to parse policy file {path}: {exc}') from exc
-        if isinstance(parsed, dict):
-            return MaskPolicy.from_dict(parsed)
-        raise ValueError(f'failed to parse policy file {path}: unsupported structure')
+        if not isinstance(parsed, dict):
+            raise ValueError(f'failed to parse policy file {path}: unsupported structure')
+        policy = MaskPolicy.from_dict(parsed)
+    policy.source_path = str(path.resolve())
+    return policy
 
 
 
