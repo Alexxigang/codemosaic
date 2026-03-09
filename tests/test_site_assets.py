@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import unittest
 from pathlib import Path
@@ -15,14 +15,14 @@ class SiteAssetsTests(unittest.TestCase):
         self.assertTrue((root / 'docs' / 'site' / 'assets' / 'safe-export-gate.svg').exists())
         self.assertTrue((root / 'docs' / 'site' / 'assets' / 'social-card.svg').exists())
 
-    def test_pages_workflow_exists(self) -> None:
+    def test_site_check_workflow_exists(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        workflow = root / '.github' / 'workflows' / 'deploy-pages.yml'
+        workflow = root / '.github' / 'workflows' / 'site-check.yml'
         self.assertTrue(workflow.exists())
         content = workflow.read_text(encoding='utf-8')
-        self.assertIn('actions/deploy-pages@v4', content)
-        self.assertIn('path: docs/site', content)
+        self.assertIn('name: site-check', content)
         self.assertIn('python scripts/build_site.py --clean-assets', content)
+        self.assertIn('python -m unittest tests.test_site_assets tests.test_site_build tests.test_release_files -v', content)
         release_template = root / '.github' / 'RELEASE_TEMPLATE.md'
         self.assertTrue(release_template.exists())
 

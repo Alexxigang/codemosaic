@@ -1,4 +1,4 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
   <rect width="1200" height="800" fill="#1e1e1e"/>
   <rect x="40" y="40" width="270" height="720" fill="#252526"/>
   <text x="70" y="90" fill="#cccccc" font-size="26" font-family="Segoe UI, Arial">EXPLORER</text>

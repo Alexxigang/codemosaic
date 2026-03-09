@@ -1,4 +1,4 @@
-﻿# Release Playbook
+# Release Playbook
 
 ## Local dry run
 
@@ -59,3 +59,13 @@ Lead with this story:
 - `assets/demo/vscode-runs-view.svg`
 - `assets/demo/safe-export-gate.svg`
 - `docs/landing-page.md`
+
+## Static site note
+
+The static site source lives in `docs/site` and can be validated locally with:
+
+```bash
+python scripts/build_site.py --clean-assets
+```
+
+Automated GitHub Pages deployment is intentionally paused for now in favor of a lighter `site-check` workflow. This keeps repository health stable while the product and release story continue to evolve.

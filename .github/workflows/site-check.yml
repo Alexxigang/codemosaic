@@ -1,0 +1,42 @@
+name: site-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/demo/**'
+      - 'docs/site/**'
+      - 'scripts/build_site.py'
+      - 'tests/test_site_assets.py'
+      - 'tests/test_site_build.py'
+      - '.github/workflows/site-check.yml'
+  pull_request:
+    paths:
+      - 'assets/demo/**'
+      - 'docs/site/**'
+      - 'scripts/build_site.py'
+      - 'tests/test_site_assets.py'
+      - 'tests/test_site_build.py'
+      - '.github/workflows/site-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build static site assets
+        run: python scripts/build_site.py --clean-assets
+
+      - name: Run site validation tests
+        run: python -m unittest tests.test_site_assets tests.test_site_build tests.test_release_files -v

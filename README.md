@@ -1,75 +1,139 @@
-# codemosaic
+# CodeMosaic
 
-一个本地优先的开源代码脱敏工具，用来在把代码发送给外部 AI 编程工具前，先把敏感标识符、字符串和注释“打马赛克”，并在 AI 返回补丁后再映射回原始代码。
+CodeMosaic is a local-first AI code privacy gateway for teams that want external AI coding help without sending raw proprietary source code outside the workstation boundary.
 
-## 当前状态
+It is not just a secret redaction script. The project aims to make external AI usage operationally safer with a full loop:
 
-- 已实现 `v0.1` CLI 原型
-- 支持 `Python` 词法级脱敏
-- 支持 `JS/TS/JSX/TSX` 专用词法脱敏，以及 `Java/Go/Rust` 轻量文本兜底
-- 支持本地 `mapping vault`、可选口令加密与 `unified diff` 回填
-- 支持 `scan` 风险扫描与 `bundle` 上下文导出
-- 支持 `VS Code` 插件原型（含 recent runs 树视图）
-- 支持本地 `VSIX` 打包与 GitHub Actions 打包工作流
-- 默认只依赖 Python 3.11+ 标准库；VS Code 原型只依赖本机已有 Node / VS Code 运行环境
+`scan -> mask -> leakage-report -> safe export -> AI patch -> unmask/apply`
 
-## 为什么做这个项目
+## Why this project is different
 
-很多团队希望利用外部 AI 提效，但又不希望把核心算法、业务术语、敏感常量和内部接口直接暴露给第三方模型。`codemosaic` 的目标不是“完美匿名化”，而是作为一个本地的 Code Privacy Gateway，显著降低源码明文泄露风险。
+Most tools stop at one of these points:
 
-## MVP 设计
+- secret scanning
+- one-way redaction
+- prompt packaging
 
-### 核心原则
+CodeMosaic goes further in three ways:
 
-- 本地优先：映射表只保存在本地工作机
-- 结构保真：尽量保留函数、控制流和文件布局
-- 确定性映射：同一轮运行中，相同原文得到相同占位符
-- 可逆回填：AI 返回补丁后可翻译回原始代码
-- 策略可配：通过 `policy.sample.yaml` 调整包含范围和脱敏行为
+1. **Reversible workflow**
+   - Mask code before it leaves the machine
+   - Keep mappings local
+   - Translate AI-generated patches back onto the original repo
 
-### 架构分层
+2. **Semantic leakage control**
+   - Measure how much business meaning still leaks after masking
+   - Score risky files and risky paths
+   - Highlight when masking is still not enough
 
-- `Policy Loader`：加载 JSON 或简单 YAML 子集策略
-- `Mask Engine`：对源码进行脱敏
-- `Mapping Vault`：记录 `masked <-> original` 映射
-- `Workspace Runner`：遍历目录、输出 masked workspace
-- `JS/TS Masker`：处理模板字符串、注释和标识符等 JS/TS 语法片段
-- `Scanner`：识别仓库中的高风险敏感内容线索
-- `Bundle Builder`：导出给外部 AI 的 Markdown 上下文包
-- `Patch Translator`：把 AI 生成的 patch 从 masked token 翻译回真实 token
-- `VS Code Prototype`：把常用 CLI 流程包装进编辑器命令与 Runs 视图
+3. **Policy-based export gate**
+   - Block unsafe exports before they leave the workstation
+   - Require stronger mapping protection for sensitive paths
+   - Support segmented masking strategies by path group
 
-## 快速开始
+That product angle is the main differentiator: **not only "did we hide secrets?" but also "is this masked code still safe enough to send?"**
 
-### 1. 先扫描风险
+## What exists today
+
+### Core CLI
+
+- `scan` for likely sensitive markers
+- `mask` for masked workspace generation
+- `mask-segmented` for multi-segment masking based on policy rules
+- `plan-segments` to preview policy-derived masking groups
+- `leakage-report` for semantic leakage scoring and gating
+- `bundle` for Markdown context export to external AI tools
+- `unmask-patch` to translate masked diffs back to original symbols
+- `apply` to apply translated patches with `git apply`
+- `rekey-mapping` and `rekey-runs` for mapping re-protection
+- `list-providers` to inspect mapping encryption providers
+
+### Privacy controls
+
+- Local mapping vault under `.codemosaic/runs/...`
+- Optional passphrase-protected mapping storage
+- Path-based mapping encryption requirements
+- Leakage budget thresholds for total and per-file risk
+- Segment-aware masking rules for tighter sharing boundaries
+
+### Product surface
+
+- Python package and CLI
+- VS Code prototype extension under `extensions/vscode`
+- Release packaging scripts and demo assets
+- Static site source under `docs/site`
+
+## Quick start
+
+### Requirements
+
+- Python `3.11+`
+- Git available locally for patch application flows
+- Optional: Node.js + VS Code if you want the extension prototype
+
+### 1) Scan a repository
 
 ```bash
 python -m codemosaic scan ./your-repo --policy policy.sample.yaml --output scan-report.json
 ```
 
-### 2. 生成脱敏工作区
+### 2) Create a masked workspace
 
 ```bash
 python -m codemosaic mask ./your-repo --policy policy.sample.yaml
 ```
 
-如果你希望本地映射文件加密保存：
+By default this creates:
 
-```bash
+- masked source at `./your-repo.masked`
+- run artifacts at `./your-repo/.codemosaic/runs/<run-id>/`
+
+### 3) Protect mappings with a passphrase
+
+PowerShell:
+
+```powershell
 $env:CODEMOSAIC_PASSPHRASE="change-me"
 python -m codemosaic mask ./your-repo --policy policy.sample.yaml --encrypt-mapping --passphrase-env CODEMOSAIC_PASSPHRASE
 ```
 
-默认会：
+### 4) Measure semantic leakage
 
-- 输出脱敏后的目录到 `./your-repo.masked`
-- 输出映射与报告到 `./your-repo/.codemosaic/runs/<run-id>/`
+```bash
+python -m codemosaic leakage-report ./your-repo.masked --policy policy.sample.yaml --output leakage-report.json
+```
 
-### Policy-Driven Mapping Encryption
+To fail the command when thresholds are exceeded:
 
-This project is intentionally moving beyond plain secret scanning into semantic leakage control: not just ?did we redact secrets??, but also ?did business meaning still leak??.
+```bash
+python -m codemosaic leakage-report ./your-repo.masked --policy policy.sample.yaml --fail-on-threshold
+```
 
-You can require encrypted mappings for specific paths directly in `policy.sample.yaml` style rules:
+### 5) Build an AI bundle
+
+```bash
+python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --max-files 20 --max-chars 12000
+```
+
+### 6) Block unsafe exports automatically
+
+```bash
+python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold
+```
+
+### 7) Translate an AI patch back
+
+```bash
+python -m codemosaic unmask-patch ./masked-response.patch --mapping ./your-repo/.codemosaic/runs/<run-id>/mapping.json --output translated.patch
+python -m codemosaic apply translated.patch --target ./your-repo --check
+python -m codemosaic apply translated.patch --target ./your-repo
+```
+
+## Policy highlights
+
+The sample policy in `policy.sample.yaml` already demonstrates the product direction.
+
+### Mapping encryption by path
 
 ```yaml
 mapping:
@@ -81,11 +145,9 @@ mapping:
       encryption_provider: aesgcm-v1
 ```
 
-If a run includes files under `src/secret/**`, `mask` now requires a passphrase and blocks plaintext mapping output.
+If a run includes `src/secret/**`, CodeMosaic can require encrypted mappings and reject plaintext output.
 
-### Leakage Budget Gate
-
-`codemosaic` can now enforce a semantic leakage budget before you export code to external AI tools. This is the key differentiator: not just masking code, but deciding whether the masked result is still safe enough to leave your boundary.
+### Leakage budget gate
 
 ```yaml
 leakage:
@@ -97,243 +159,102 @@ leakage:
       max_file_score: 0
 ```
 
-Use `leakage-report --fail-on-threshold` for CI checks, or `bundle --fail-on-threshold` to block unsafe exports automatically.
+This is the core governance idea: a masked bundle can still be blocked if it leaks too much business meaning.
 
-### 3. 为外部 AI 导出上下文包
+### Segment planning
 
-```bash
-python -m codemosaic bundle ./your-repo.masked --output ai-bundle.md
-```
-
-### 4. 把 AI 返回的补丁翻译回原始代码
+Preview policy-driven segments:
 
 ```bash
-python -m codemosaic unmask-patch ./ai.patch \
-  --mapping ./your-repo/.codemosaic/runs/<run-id>/mapping.json \
-  --output ./translated.patch
+python -m codemosaic plan-segments ./your-repo --policy policy.sample.yaml --output segment-plan.json
 ```
 
-如果 mapping 是加密的：
+Generate segmented masked outputs:
 
 ```bash
-$env:CODEMOSAIC_PASSPHRASE="change-me"
-python -m codemosaic unmask-patch ./ai.patch \
-  --mapping ./your-repo/.codemosaic/runs/<run-id>/mapping.enc.json \
-  --output ./translated.patch \
-  --passphrase-env CODEMOSAIC_PASSPHRASE
+python -m codemosaic mask-segmented ./your-repo --policy policy.sample.yaml --output ./segmented-output
 ```
 
-### 5. 应用补丁
+## VS Code prototype
 
-```bash
-python -m codemosaic apply ./translated.patch --target ./your-repo
-```
+The repository includes a prototype extension in `extensions/vscode` that wraps common local workflows into editor commands and a runs view.
 
-内部会调用 `git apply`，也支持 `--check` 和 `--3way`。
-
-## 命令说明
-
-### `scan`
-
-```bash
-python -m codemosaic scan <source> [--policy <file>] [--output <report.json>]
-```
-
-输出 URL、邮箱、手机号、疑似密钥、内网主机和注释提示词等风险线索统计。
-
-### `leakage-report`
-
-```bash
-python -m codemosaic leakage-report <masked-source> [--policy <file>] [--output <report.json>] [--fail-on-threshold]
-```
-
-推荐对已经 masking 后的工作区执行，用来回答“代码虽然脱敏了，但还残留多少业务语义”。
-推荐对已经 masking 后的工作区执行，用来回答“代码虽然脱敏了，但还残留多少业务语义”。
-### `mask`
-
-```bash
-python -m codemosaic mask <source> [--policy <file>] [--output <dir>] [--run-id <id>] [--encrypt-mapping] [--encryption-provider <name>] [--passphrase-env <ENV>] [--passphrase-file <file>]
-```
-
-输出：
-
-- `masked workspace`
-- `mapping.json` 或 `mapping.enc.json`
-- `report.json`
-
-### `mask-segmented`
-
-```bash
-python -m codemosaic mask-segmented <source> [--policy <file>] [--output <dir>] [--run-id-prefix <prefix>] [--encrypt-mapping] [--encryption-provider <name>] [--passphrase-env <ENV>] [--passphrase-file <file>]
-```
-
-根据路径级 mapping 规则把一次处理拆成多个 segment，每个 segment 生成独立的 masked workspace、mapping 和 report。
-
-### `plan-segments`
-
-```bash
-python -m codemosaic plan-segments <source> [--policy <file>] [--output <plan.json>]
-```
-
-预览当前策略会把仓库切成哪些 segment，适合在真正执行前检查 provider、加密要求和文件分布。
-
-### `bundle`
-
-```bash
-python -m codemosaic bundle <source> [--policy <file>] [--output <file>] [--max-files 20] [--max-chars 12000] [--leakage-report <report.json>] [--fail-on-threshold]
-```
-
-推荐对 `masked workspace` 使用，只导出最小必要上下文。
-
-### `unmask-patch`
-
-```bash
-python -m codemosaic unmask-patch <patch> --mapping <mapping.json|mapping.enc.json> [--output <file>] [--passphrase-env <ENV>] [--passphrase-file <file>]
-```
-
-### `rekey-mapping`
-
-```bash
-python -m codemosaic rekey-mapping <mapping.json|mapping.enc.json> [--output <file>] [--encryption-provider <name>] [--passphrase-env <ENV>] [--passphrase-file <file>] [--new-passphrase-env <ENV>] [--new-passphrase-file <file>]
-```
-
-用于对本地 mapping 做重新加密、口令轮换，或把加密 mapping 解包成明文 mapping；当前默认 provider 为 `prototype-v1`，接口已预留后续接入更成熟实现。
-
-### `list-providers`
-
-```bash
-python -m codemosaic list-providers
-```
-
-用于查看当前环境中可用的 mapping 加密 provider；如果本机安装了额外加密库，列表会自动出现对应后端。
-
-### `rekey-runs`
-
-```bash
-python -m codemosaic rekey-runs <workspace> [--limit <n>] [--encryption-provider <name>] [--passphrase-env <ENV>] [--passphrase-file <file>] [--new-passphrase-env <ENV>] [--new-passphrase-file <file>]
-```
-
-用于批量重包 `.codemosaic/runs/` 下的 mapping 文件；可按最近 run 数量限制范围，适合口令轮换和本地资产整理。
-
-### `apply`
-
-```bash
-python -m codemosaic apply <patch> --target <repo> [--check] [--3way]
-```
-
-## VS Code 原型
-
-- 扩展目录：`extensions/vscode/`
-- 原型说明：`docs/vscode-extension.md`
-- 扩展 README：`extensions/vscode/README.md`
-- Explorer 中提供 `CodeMosaic Runs` 视图
-- `unmask-patch` 会优先从最近 run 中选择 mapping
-
-## 打包 VS Code 扩展
+Useful packaging command:
 
 ```bash
 python scripts/package_vscode_extension.py --overwrite
 ```
 
-生成的 `.vsix` 默认输出到 `dist/`，可在 VS Code 中通过 `Extensions: Install from VSIX...` 安装。
+The extension is intentionally lightweight and prototype-grade, but it helps tell the product story well:
 
-## 安全边界
+- scan workspace
+- mask workspace
+- inspect recent runs
+- analyze leakage
+- attempt safe export
 
-- 它降低的是“源码明文泄露风险”，不是“零信息泄露”
-- 控制流、文件结构和上下文仍可能让模型推断业务语义
-- 如果 prompt 里补充了业务背景，仍可能发生侧信道泄露
-- 当前 `scan` 只能发现一部分风险线索，不等于完整 DLP
-- 当前 mapping 加密是标准库实现的口令保护封装，适合本地原型与开源首版，但仍建议后续接受独立安全审查
-- 对高敏场景，建议结合 DLP、审计、最小上下文发送和自托管模型
+## Docs index
 
-## 已实现范围
+- `docs/leakage-gate.md` - semantic leakage scoring and gate behavior
+- `docs/ci-governance.md` - CI recipes for policy enforcement
+- `docs/demo-walkthrough.md` - short demo flow for product storytelling
+- `docs/landing-page.md` - launch/site messaging draft
+- `docs/release-playbook.md` - local release steps and assets
+- `docs/site/index.html` - static site source
 
-### In scope
+## Static site and GitHub Pages
 
-- Python 词法级脱敏
-- JS/TS/JSX/TSX 专用词法脱敏
-- 通用文本代码文件的轻量兜底脱敏
-- 本地映射表与 patch 回填
-- mapping 可选口令加密
-- 风险扫描与 AI bundle 导出
-- VS Code 插件原型与 recent runs 树视图
-- VSIX 打包脚本、文档、样例策略、基础测试、CI 配置
+The static site source remains in `docs/site`, but automated GitHub Pages deployment is intentionally paused for now.
 
-### Out of scope
+Reason: a broken public Pages pipeline is lower value than a stable repository and release flow. The repo now keeps a lightweight site validation workflow instead of auto-deploying Pages on every change.
 
-- TypeScript AST 级精确保真
-- 代理模式 / 企业级策略平台
-- 基于语义的机密发现与分类器
-- 签名发布与扩展市场发布自动化
+If you want to publish the site later, you still have everything needed:
 
-## 文档
+- site source in `docs/site`
+- asset sync script in `scripts/build_site.py`
+- social card and demo visuals in `assets/demo`
 
-- `docs/brainstorm.md`
-- `docs/architecture.md`
-- `docs/threat-model.md`
-- `docs/vscode-extension.md`
-- `docs/leakage-gate.md`
-- `docs/ci-governance.md`
-- `extensions/vscode/README.md`
-- `scripts/package_vscode_extension.py`
-- `scripts/bootstrap_repository.py`
-- `scripts/run_demo_workflow.py`
-- `docs/demo-walkthrough.md`
-- `docs/release-playbook.md`
-- `docs/landing-page.md`
-- `docs/site/index.html`
-- `examples/demo-repo/README.md`
-- `scripts/generate_release_assets.py`
-- `dist/release-assets/release-page.md`
-- `CONTRIBUTING.md`
-- `SECURITY.md`
-- `mydocs/specs/2026-03-08_00-19_codemosaic-mvp.md`
+## Security boundaries
 
-## 运行测试
+CodeMosaic reduces exposure, but it is not magic.
+
+- Masking does not guarantee zero semantic disclosure
+- Prompt text can still leak business context
+- Current leakage analysis is heuristic, not a full DLP system
+- Current encryption providers are suitable for an open-source prototype, not yet a formally audited enterprise design
+
+For highly sensitive environments, combine this with DLP, audit logging, minimal-context sharing, and self-hosted AI where possible.
+
+## Validation
+
+Run the test suite:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## 开源路线图
-
-- `v0.1`：CLI 原型 + Python masking + JS/TS masking + mapping encryption + patch translator + scan/bundle + VS Code prototype + runs explorer
-- `v0.2`：TypeScript AST 脱敏 + 更强策略系统 + 插件交互增强
-- `v0.3`：企业级策略集成 + 审计日志 + 签名发布与更完整的 IDE 集成
-
-## ????????
-
-- ??????????? AI ???????
-- ?????????????????????????????
-- ??????????? AI ??????????????????
-
-## Product Positioning
-
-CodeMosaic is an **AI Code Privacy Gateway** for teams that want to use external AI coding tools without sending raw proprietary code.
-
-### Why it stands out
-
-- Reversible workflow: `mask -> AI -> patch -> unmask/apply`
-- Policy-driven segmentation and mapping encryption
-- Semantic leakage analysis after masking
-- Leakage Budget Gate that blocks unsafe exports before they leave the workstation
-- VS Code prototype and demo assets built around the same safe-export story
-
-### Safe export example
+Generate site assets locally:
 
 ```bash
-python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold
+python scripts/build_site.py --clean-assets
 ```
 
-When the leakage budget is exceeded, the command exits with code `3` and does not generate the bundle.
+Generate release assets:
 
-## Policy Presets
+```bash
+python scripts/generate_release_assets.py --encrypt-mapping --clean
+```
 
-- `presets/strict-ai-gateway.yaml`
-- `presets/balanced-ai-gateway.yaml`
-- `presets/public-sdk-ai-gateway.yaml`
+## Roadmap direction
 
-## CI Governance
+Near-term directions that keep the project differentiated:
 
-- GitHub Actions example: `examples/github-actions/leakage-gate.yml`
-- Team rollout guide: `docs/ci-governance.md`
+- stronger AST-aware masking for more languages
+- smarter semantic leakage scoring and explanations
+- better review UX for blocked exports
+- safer team workflows around approved policy presets
+- CI and editor integrations that turn privacy policy into a normal developer workflow
+
+## One-line pitch
+
+**CodeMosaic helps teams use external AI coding tools without giving up control over what their code reveals.**

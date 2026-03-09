@@ -1,4 +1,4 @@
-﻿# Release Notes Template
+# Release Notes Template
 
 ## Product Positioning
 
@@ -26,7 +26,7 @@ CodeMosaic is an **AI Code Privacy Gateway** for teams that want external AI cod
 - Measure semantic leakage after masking
 - Block unsafe exports with `Leakage Budget Gate`
 - Use the VS Code prototype extension with runs explorer and safe export workflow
-- Publish demo/release assets and GitHub Pages site
+- Publish demo/release assets and optional static site preview
 
 ## Validation
 
