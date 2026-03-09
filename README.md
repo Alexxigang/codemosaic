@@ -1,6 +1,6 @@
 # CodeMosaic
 
-Language: **English** | [????](README.zh-CN.md)
+Language: **English** | [Chinese (Simplified)](README.zh-CN.md)
 
 CodeMosaic is a local-first AI code privacy gateway for teams that want external AI coding help without sending raw proprietary source code outside the workstation boundary.
 
