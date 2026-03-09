@@ -257,3 +257,21 @@
   - Pages 站点更完整，减少死链和搜索抓取层面的粗糙感
 - Review Verdict: PASS
 - Validation: `python -m unittest discover -s tests -v` => 55/55 OK
+
+## 17. 2026-03-09 Policy Presets & CI Governance Update
+- Research Summary: 项目已适合演示和传播，但团队真实落地还需要开箱即用的策略预设与 CI workflow 样例。
+- Decision: 新增三个 policy presets、GitHub Actions 示例和 CI 治理文档，并把它们接入 README 和站点。
+- Execute:
+  - `presets/strict-ai-gateway.yaml`
+  - `presets/balanced-ai-gateway.yaml`
+  - `presets/public-sdk-ai-gateway.yaml`
+  - `examples/github-actions/leakage-gate.yml`
+  - `docs/ci-governance.md`
+  - `docs/site/index.html`: 增加 CI governance / presets 入口
+  - `tests/test_policy_presets.py`
+  - `tests/test_ci_examples.py`
+- Product Impact:
+  - 从“能演示”进一步走向“能被团队拿来试点”
+  - 降低第一次配置 policy 和 CI 门禁的上手成本
+- Review Verdict: PASS
+- Validation: `python -m unittest discover -s tests -v` => 58/58 OK

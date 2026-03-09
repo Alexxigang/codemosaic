@@ -273,6 +273,7 @@ python scripts/package_vscode_extension.py --overwrite
 - `docs/threat-model.md`
 - `docs/vscode-extension.md`
 - `docs/leakage-gate.md`
+- `docs/ci-governance.md`
 - `extensions/vscode/README.md`
 - `scripts/package_vscode_extension.py`
 - `scripts/bootstrap_repository.py`
@@ -325,3 +326,14 @@ python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --out
 ```
 
 When the leakage budget is exceeded, the command exits with code `3` and does not generate the bundle.
+
+## Policy Presets
+
+- `presets/strict-ai-gateway.yaml`
+- `presets/balanced-ai-gateway.yaml`
+- `presets/public-sdk-ai-gateway.yaml`
+
+## CI Governance
+
+- GitHub Actions example: `examples/github-actions/leakage-gate.yml`
+- Team rollout guide: `docs/ci-governance.md`

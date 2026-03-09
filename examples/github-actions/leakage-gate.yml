@@ -1,0 +1,39 @@
+﻿name: leakage-gate-example
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.js'
+      - '**/*.jsx'
+      - 'policy.sample.yaml'
+      - 'presets/**'
+
+jobs:
+  safe-export-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build masked workspace
+        run: |
+          python -m codemosaic mask . \
+            --policy presets/balanced-ai-gateway.yaml \
+            --output ./.ci.masked
+
+      - name: Enforce leakage budget gate
+        run: |
+          python -m codemosaic bundle ./.ci.masked \
+            --policy presets/balanced-ai-gateway.yaml \
+            --output ./ai-bundle.md \
+            --leakage-report ./leakage-report.json \
+            --fail-on-threshold

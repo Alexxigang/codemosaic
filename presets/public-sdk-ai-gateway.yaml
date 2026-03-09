@@ -1,0 +1,23 @@
+﻿paths:
+  include:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+comments:
+  mode: placeholder
+workspace:
+  copy_unmatched: false
+mapping:
+  require_encryption: false
+  encryption_provider: prototype-v1
+leakage:
+  max_total_score: 40
+  max_file_score: 18
+  rules:
+    src/public-sdk/**:
+      max_total_score: 60
+      max_file_score: 24
+    examples/**:
+      max_file_score: 24

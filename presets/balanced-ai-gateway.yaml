@@ -1,0 +1,33 @@
+﻿paths:
+  include:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.java"
+    - "**/*.go"
+    - "**/*.rs"
+  exclude:
+    - ".git/**"
+    - ".codemosaic/**"
+    - "node_modules/**"
+    - "dist/**"
+    - "build/**"
+    - "coverage/**"
+comments:
+  mode: placeholder
+workspace:
+  copy_unmatched: false
+mapping:
+  require_encryption: false
+  encryption_provider: prototype-v1
+leakage:
+  max_total_score: 20
+  max_file_score: 8
+  rules:
+    src/secret/**:
+      max_total_score: 4
+      max_file_score: 0
+    src/public-sdk/**:
+      max_file_score: 16

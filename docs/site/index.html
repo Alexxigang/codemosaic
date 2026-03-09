@@ -191,7 +191,26 @@ python scripts/generate_release_assets.py --encrypt-mapping --clean</code></pre>
       </div>
     </section>
 
-    <section class="section alt two-col">
+        <section class="section two-col">
+      <div>
+        <p class="section-label">Policy Presets</p>
+        <h2>Start with a preset instead of designing policy from scratch.</h2>
+        <ul class="clean-list">
+          <li><strong>Strict:</strong> internal platforms, core algorithms, finance, security-sensitive services</li>
+          <li><strong>Balanced:</strong> most application repos and first external-AI pilots</li>
+          <li><strong>Public SDK:</strong> semi-public integration code and sample repos</li>
+        </ul>
+      </div>
+      <div class="card code-card">
+        <h3>Suggested starting presets</h3>
+        <pre><code>presets/strict-ai-gateway.yaml
+presets/balanced-ai-gateway.yaml
+presets/public-sdk-ai-gateway.yaml</code></pre>
+        <p>Use `docs/ci-governance.md` and `examples/github-actions/leakage-gate.yml` to turn these into team workflows.</p>
+      </div>
+    </section>
+
+<section class="section alt two-col">
       <div>
         <p class="section-label">Ideal Users</p>
         <h2>Built for teams adopting external AI carefully.</h2>
