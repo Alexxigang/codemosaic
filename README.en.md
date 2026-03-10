@@ -84,6 +84,16 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Git available locally for patch application flows
 - Optional: Node.js + VS Code if you want the extension prototype
 
+### 0) Bootstrap a policy preset
+
+```bash
+python -m codemosaic list-policy-presets
+python -m codemosaic init-policy --preset balanced-ai-gateway --output policy.codemosaic.yaml
+```
+
+Use `balanced-ai-gateway` for most repositories, `strict-ai-gateway` for core internal code, and `public-sdk-ai-gateway` for SDKs or example-heavy repos.
+You can replace `policy.sample.yaml` with `policy.codemosaic.yaml` in the commands below.
+
 ### 1) Scan a repository
 
 ```bash

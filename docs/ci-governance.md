@@ -31,6 +31,13 @@ If the leakage budget is exceeded, the command exits with code `3`.
 
 ## Suggested preset starting points
 
+Bootstrap a team policy file locally before wiring it into CI:
+
+```bash
+python -m codemosaic list-policy-presets
+python -m codemosaic init-policy --preset balanced-ai-gateway --output ./.codemosaic/policy.yaml
+```
+
 - `presets/strict-ai-gateway.yaml`
 - `presets/balanced-ai-gateway.yaml`
 - `presets/public-sdk-ai-gateway.yaml`

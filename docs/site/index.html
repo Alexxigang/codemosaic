@@ -163,10 +163,10 @@ python -m codemosaic bundle ./repo.masked --policy policy.sample.yaml --output a
       </div>
       <div class="card code-card">
         <h3>Suggested starting presets</h3>
-        <pre><code>presets/strict-ai-gateway.yaml
-presets/balanced-ai-gateway.yaml
-presets/public-sdk-ai-gateway.yaml</code></pre>
-        <p>Use `docs/ci-governance.md` and `examples/github-actions/leakage-gate.yml` to turn these into team workflows.</p>
+        <pre><code>python -m codemosaic list-policy-presets
+python -m codemosaic init-policy --preset balanced-ai-gateway --output policy.codemosaic.yaml</code></pre>
+        <p>Built-in presets: <code>strict-ai-gateway.yaml</code>, <code>balanced-ai-gateway.yaml</code>, and <code>public-sdk-ai-gateway.yaml</code>.</p>
+        <p>Use <code>docs/ci-governance.md</code> and <code>examples/github-actions/leakage-gate.yml</code> to turn these into team workflows.</p>
       </div>
     </section>
 

@@ -76,6 +76,16 @@ CodeMosaic 想做的是再走一步，而且是从“企业真实可用”的角
 - 本地可用 Git
 - 如果要试 VS Code 原型，可选 Node.js + VS Code
 
+### 0) 初始化一份策略预设
+
+```bash
+python -m codemosaic list-policy-presets
+python -m codemosaic init-policy --preset balanced-ai-gateway --output policy.codemosaic.yaml
+```
+
+大多数仓库先用 `balanced-ai-gateway`，核心内部代码用 `strict-ai-gateway`，SDK 或示例仓库用 `public-sdk-ai-gateway`。
+下面所有命令里的 `policy.sample.yaml` 都可以替换成你刚生成的 `policy.codemosaic.yaml`。
+
 ### 1) 扫描仓库
 
 ```bash

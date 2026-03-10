@@ -20,6 +20,7 @@ from codemosaic.leakage import evaluate_leakage_budget, has_leakage_budget, leak
 from codemosaic.mapping import rewrap_mapping_file, verify_mapping_file
 from codemosaic.patching import apply_patch_file, translate_patch_file
 from codemosaic.policy import MaskPolicy, load_policy
+from codemosaic.presets import init_policy_from_preset, list_policy_presets
 from codemosaic.runs import audit_run_mappings, rekey_run_mappings
 from codemosaic.scanning import scan_workspace
 from codemosaic.segmentation import mask_segmented_workspace, plan_mask_segments, write_segment_plan
@@ -130,6 +131,14 @@ def build_parser() -> argparse.ArgumentParser:
     audit_runs_parser.add_argument('--output', type=Path, default=None)
     audit_runs_parser.add_argument('--require-signature', action='store_true')
     _add_signature_material_arguments(audit_runs_parser)
+
+    list_presets_parser = subparsers.add_parser('list-policy-presets', help='List built-in policy presets')
+    list_presets_parser.add_argument('--verbose', action='store_true')
+
+    init_policy_parser = subparsers.add_parser('init-policy', help='Bootstrap a policy file from a built-in preset')
+    init_policy_parser.add_argument('--preset', type=str, default='balanced-ai-gateway')
+    init_policy_parser.add_argument('--output', type=Path, default=Path('policy.codemosaic.yaml'))
+    init_policy_parser.add_argument('--force', action='store_true')
 
     generate_key_parser = subparsers.add_parser('generate-key', help='Generate high-entropy mapping key material')
     generate_key_parser.add_argument('--output', type=Path, default=None)
@@ -626,6 +635,24 @@ def main(argv: list[str] | None = None) -> int:
             print(f'output mode: {mode}')
             for path in output_files:
                 print(str(path))
+            return 0
+
+        if args.command == 'list-policy-presets':
+            presets = list_policy_presets()
+            print(f'available presets: {len(presets)}')
+            for preset in presets:
+                print(f'{preset.preset_id}	{preset.filename}	{preset.description}')
+                if args.verbose:
+                    print(f"recommended for: {', '.join(preset.recommended_for)}")
+            return 0
+
+        if args.command == 'init-policy':
+            output_path = args.output.resolve()
+            preset = init_policy_from_preset(args.preset, output_path, force=args.force)
+            print(f'created policy: {output_path}')
+            print(f'preset: {preset.preset_id}')
+            print(f'source: {preset.path}')
+            print('next step: pass this file to --policy or adjust thresholds for your repo')
             return 0
 
         if args.command == 'generate-key':
