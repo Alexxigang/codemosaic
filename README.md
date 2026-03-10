@@ -407,6 +407,7 @@ The new `CodeMosaic: Initialize Secure Workspace` command bootstraps policy, man
 - `docs/leakage-gate.md` - semantic leakage scoring and gate behavior
 - `docs/ci-governance.md` - CI recipes for policy enforcement
 - `docs/demo-walkthrough.md` - short demo flow for product storytelling
+- `docs/secure-workspace-example.md` - step-by-step secure workspace onboarding example
 - `docs/landing-page.md` - launch/site messaging draft
 - `docs/release-playbook.md` - local release steps and assets
 - `docs/site/index.html` - static site source

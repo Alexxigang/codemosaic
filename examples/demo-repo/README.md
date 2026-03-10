@@ -15,3 +15,13 @@ The bundled demo policy intentionally sets a strict leakage budget. That means:
 - a regular masked bundle can still be generated for inspection
 - a safe export decision should be reported as `blocked`
 - the `web/pricing.ts` path is expected to be one of the highest-risk files
+
+## Secure onboarding demo
+
+To demonstrate the new secure workspace bootstrap flow against this repo, run:
+
+```bash
+python scripts/run_secure_onboarding_demo.py --clean
+```
+
+That produces a copy of this repo with generated policy, key registry, managed keys, encrypted mapping output, and a summary under `dist/secure-onboarding-demo`.
