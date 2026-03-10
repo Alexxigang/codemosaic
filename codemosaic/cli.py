@@ -13,6 +13,7 @@ from codemosaic.key_management import (
     load_key_registry,
     register_key_source,
     resolve_key_material,
+    update_key_source_status,
 )
 from codemosaic.leakage import evaluate_leakage_budget, has_leakage_budget, leakage_report, write_leakage_report
 from codemosaic.mapping import rewrap_mapping_file
@@ -127,6 +128,12 @@ def build_parser() -> argparse.ArgumentParser:
     list_keys_parser.add_argument('workspace', type=Path)
     list_keys_parser.add_argument('--key-registry', type=Path, default=None)
 
+    set_key_status_parser = subparsers.add_parser('set-key-source-status', help='Update lifecycle status for a registered key source')
+    set_key_status_parser.add_argument('workspace', type=Path)
+    set_key_status_parser.add_argument('--key-id', type=str, required=True)
+    set_key_status_parser.add_argument('--status', type=str, choices=['active', 'decrypt-only', 'retired'], required=True)
+    set_key_status_parser.add_argument('--key-registry', type=Path, default=None)
+
     subparsers.add_parser('list-providers', help='List available mapping encryption providers')
     return parser
 
@@ -153,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
                 args,
                 policy,
                 registry_path=registry_path,
+                usage_mode='encrypt',
                 required=effective_mapping.require_encryption or encryption_requested,
                 missing_message=(
                     'policy requires encrypted mapping; provide --key-env/--key-file, --passphrase-env/--passphrase-file, or register a key source in the key registry'
@@ -191,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
                 args,
                 policy,
                 registry_path=registry_path,
+                usage_mode='encrypt',
                 required=effective_mapping.require_encryption or encryption_requested,
                 missing_message=(
                     'policy requires encrypted mapping; provide --key-env/--key-file, --passphrase-env/--passphrase-file, or register a key source in the key registry'
@@ -286,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
                 workspace_root=_infer_workspace_root_from_mapping(mapping_file),
                 policy=None,
             )
-            key_material = _resolve_active_key_material(args, None, registry_path=registry_path, required=False)
+            key_material = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
             output_file = translate_patch_file(
                 args.patch.resolve(),
                 mapping_file,
@@ -314,8 +323,8 @@ def main(argv: list[str] | None = None) -> int:
             workspace_root = _infer_workspace_root_from_mapping(mapping_file)
             registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
             new_registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None, registry_attr='new_key_registry') or registry_path
-            current_key = _resolve_active_key_material(args, None, registry_path=registry_path, required=False)
-            new_key = _resolve_new_key_material(args, registry_path=new_registry_path)
+            current_key = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
+            new_key = _resolve_new_key_material(args, registry_path=new_registry_path, usage_mode='encrypt')
             output_file = rewrap_mapping_file(
                 mapping_file,
                 output_path=args.output.resolve() if args.output else None,
@@ -333,8 +342,8 @@ def main(argv: list[str] | None = None) -> int:
             workspace_root = args.workspace.resolve()
             registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
             new_registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None, registry_attr='new_key_registry') or registry_path
-            current_key = _resolve_active_key_material(args, None, registry_path=registry_path, required=False)
-            new_key = _resolve_new_key_material(args, registry_path=new_registry_path)
+            current_key = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
+            new_key = _resolve_new_key_material(args, registry_path=new_registry_path, usage_mode='encrypt')
             output_files = rekey_run_mappings(
                 workspace_root,
                 passphrase=current_key.secret,
@@ -396,6 +405,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f'registered keys: {len(entries)}')
             for entry in entries:
                 print(f'{entry.key_id}\t{entry.source}\t{entry.reference}\t{entry.provider}\t{entry.status}')
+            return 0
+
+        if args.command == 'set-key-source-status':
+            workspace_root = args.workspace.resolve()
+            registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
+            if registry_path is None:
+                registry_path = default_key_registry_path(workspace_root)
+            entry = update_key_source_status(registry_path, key_id=args.key_id, status=args.status)
+            print(f'key registry: {registry_path}')
+            print(f'updated key: {entry.key_id}')
+            print(f'status: {entry.status}')
             return 0
 
         if args.command == 'list-providers':
@@ -464,6 +484,7 @@ def _resolve_active_key_material(
     policy: MaskPolicy | None,
     *,
     registry_path: Path | None,
+    usage_mode: str,
     required: bool,
     missing_message: str = 'encrypted mapping requires --key-env/--key-file, --passphrase-env/--passphrase-file, or a matching key registry entry',
 ):
@@ -476,13 +497,14 @@ def _resolve_active_key_material(
         policy=_policy_key_management(policy),
         policy_base_dir=_policy_base_dir(policy),
         registry_path=registry_path,
+        usage_mode=usage_mode,
         required=required,
         missing_message=missing_message,
     )
 
 
 
-def _resolve_new_key_material(args: argparse.Namespace, *, registry_path: Path | None):
+def _resolve_new_key_material(args: argparse.Namespace, *, registry_path: Path | None, usage_mode: str):
     return resolve_key_material(
         key_env=getattr(args, 'new_key_env', None),
         key_file=getattr(args, 'new_key_file', None),
@@ -491,6 +513,7 @@ def _resolve_new_key_material(args: argparse.Namespace, *, registry_path: Path |
         passphrase_file=getattr(args, 'new_passphrase_file', None),
         policy=None,
         registry_path=registry_path,
+        usage_mode=usage_mode,
         required=False,
         missing_message='',
         key_env_option='--new-key-env',

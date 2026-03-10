@@ -1,4 +1,4 @@
-# CodeMosaic
+﻿# CodeMosaic
 
 Language: **English** | [Chinese (Simplified)](README.zh-CN.md)
 
@@ -49,7 +49,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - `apply` to apply translated patches with `git apply`
 - `rekey-mapping` and `rekey-runs` for mapping re-protection
 - `generate-key` to create high-entropy managed mapping keys
-- `register-key-source` and `list-key-sources` for workspace key registry management
+- `register-key-source`, `list-key-sources`, and `set-key-source-status` for workspace key registry lifecycle management
 - `list-providers` to inspect mapping encryption providers
 
 ### Privacy controls
@@ -58,6 +58,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Optional passphrase-based mapping protection
 - Managed-key workflow with `managed-v1`
 - Policy-backed key source references from env vars or files
+- Key lifecycle states: `active`, `decrypt-only`, and `retired`
 - Key IDs recorded in mapping metadata and encrypted envelope headers
 - Leakage budget thresholds for total and per-file risk
 - Segment-aware masking rules for tighter sharing boundaries
@@ -196,7 +197,14 @@ Teams can register reusable key-source references per workspace:
 ```bash
 python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
 python -m codemosaic list-key-sources ./your-repo
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
 ```
+
+Registry entries support lifecycle states:
+
+- `active`: allowed for new encryption and decrypt operations
+- `decrypt-only`: blocked for new encryption, but still allowed for decrypt and rekey flows
+- `retired`: blocked from registry-based automatic resolution
 
 Then policy can reference only the `key_id`, and `mask` resolves the source from `.codemosaic/key-registry.json`.
 
@@ -220,7 +228,15 @@ Rewrap recent runs:
 
 ```powershell
 python -m codemosaic rekey-runs ./your-repo --key-env OLD_CODEMOSAIC_KEY --new-key-env NEW_CODEMOSAIC_KEY --new-key-id team-dev-2026q2 --encryption-provider managed-v1
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2025q4 --status retired
 ```
+
+Recommended lifecycle during rotation:
+
+1. Keep the new key `active`.
+2. Move the previous key to `decrypt-only` so historical runs still translate.
+3. Move older keys to `retired` once related mappings are fully rewrapped or expired.
 
 ### Metadata and auditability
 
@@ -368,3 +384,7 @@ Near-term directions that keep the project differentiated:
 ## One-line pitch
 
 **CodeMosaic helps teams use external AI coding tools without giving up control over what their code reveals.**
+
+
+
+

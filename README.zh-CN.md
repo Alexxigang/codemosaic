@@ -1,4 +1,4 @@
-# CodeMosaic
+﻿# CodeMosaic
 
 语言： [English](README.en.md) | **简体中文**
 
@@ -49,7 +49,7 @@ CodeMosaic 想继续往前走三步：
 - `apply`：调用 `git apply` 应用翻译后的补丁
 - `rekey-mapping` 与 `rekey-runs`：重包裹 mapping，支持轮换密钥
 - `generate-key`：生成高熵 mapping 密钥
-- `register-key-source` / `list-key-sources`：管理工作区级别的 key registry
+- `register-key-source` / `list-key-sources` / `set-key-source-status`：管理工作区级别的 key registry 生命周期
 - `list-providers`：查看当前可用的加密 provider
 
 ### 隐私与治理能力
@@ -58,6 +58,7 @@ CodeMosaic 想继续往前走三步：
 - 支持传统口令式 mapping 加密
 - 支持 `managed-v1` 托管密钥流程
 - 支持从 `env` / `file` 解析密钥来源
+- 支持 `active` / `decrypt-only` / `retired` 三种密钥状态
 - 支持记录 `key_id`，便于轮换和审计
 - 支持总分与单文件级别的泄漏预算阈值
 - 支持按路径分段的 masking 策略
@@ -162,7 +163,14 @@ mapping:
 ```bash
 python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
 python -m codemosaic list-key-sources ./your-repo
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
 ```
+
+registry 里的条目支持三种生命周期状态：
+
+- `active`：可用于新加密，也可用于解密
+- `decrypt-only`：不能再用于新加密，但仍可用于解密和 rekey
+- `retired`：不再参与 registry 的自动解析
 
 之后 policy 里只需要写 `key_id`，`mask` 会自动从 `.codemosaic/key-registry.json` 解析对应来源。
 
@@ -172,7 +180,15 @@ python -m codemosaic list-key-sources ./your-repo
 $env:OLD_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev.key
 $env:NEW_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev-v2.key
 python -m codemosaic rekey-runs ./your-repo --key-env OLD_CODEMOSAIC_KEY --new-key-env NEW_CODEMOSAIC_KEY --new-key-id team-dev-2026q2 --encryption-provider managed-v1
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2025q4 --status retired
 ```
+
+推荐的轮换节奏：
+
+1. 新密钥保持 `active`。
+2. 上一把密钥切到 `decrypt-only`，保证历史 run 还能继续翻译补丁。
+3. 更老的密钥在相关 mapping 完成 rewrap 或过期后再切到 `retired`。
 
 ### 元数据与可审计性
 
@@ -208,3 +224,7 @@ CodeMosaic 能显著降低暴露风险，但它不是魔法。
 ## 一句话介绍
 
 **CodeMosaic 帮助团队使用外部 AI 编程工具，同时不失去对代码泄漏边界的控制。**
+
+
+
+

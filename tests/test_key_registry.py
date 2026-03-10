@@ -13,6 +13,7 @@ from codemosaic.key_management import (
     generate_mapping_key,
     load_key_registry,
     register_key_source,
+    resolve_key_material,
 )
 from codemosaic.mapping import load_mapping_payload
 
@@ -63,6 +64,72 @@ class KeyRegistryTests(unittest.TestCase):
             self.assertIn('registered keys: 1', result.stdout)
             self.assertIn('team-dev-2026q1', result.stdout)
             self.assertIn('CODEMOSAIC_MAPPING_KEY', result.stdout)
+
+
+    def test_cli_can_update_key_source_status(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / 'repo'
+            workspace.mkdir(parents=True)
+            subprocess.run(
+                [
+                    'python', '-m', 'codemosaic', 'register-key-source', str(workspace),
+                    '--key-id', 'team-dev-2026q1',
+                    '--source', 'env',
+                    '--reference', 'CODEMOSAIC_MAPPING_KEY',
+                ],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            result = subprocess.run(
+                [
+                    'python', '-m', 'codemosaic', 'set-key-source-status', str(workspace),
+                    '--key-id', 'team-dev-2026q1',
+                    '--status', 'decrypt-only',
+                ],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertIn('status: decrypt-only', result.stdout)
+            entry = find_registered_key_source(default_key_registry_path(workspace), 'team-dev-2026q1')
+            self.assertIsNotNone(entry)
+            assert entry is not None
+            self.assertEqual(entry.status, 'decrypt-only')
+
+    def test_decrypt_only_registry_key_cannot_encrypt_but_can_decrypt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / 'repo'
+            workspace.mkdir(parents=True)
+            registry_path = default_key_registry_path(workspace)
+            register_key_source(
+                registry_path,
+                key_id='team-dev-2026q1',
+                source='env',
+                reference='CODEMOSAIC_MAPPING_KEY',
+                status='decrypt-only',
+            )
+            os.environ['CODEMOSAIC_MAPPING_KEY'] = generate_mapping_key()
+            with self.assertRaises(ValueError):
+                resolve_key_material(
+                    key_id='team-dev-2026q1',
+                    registry_path=registry_path,
+                    usage_mode='encrypt',
+                    required=True,
+                    missing_message='missing',
+                )
+            resolved = resolve_key_material(
+                key_id='team-dev-2026q1',
+                registry_path=registry_path,
+                usage_mode='decrypt',
+                required=True,
+                missing_message='missing',
+            )
+            self.assertEqual(resolved.origin, 'registry')
+            self.assertEqual(resolved.key_id, 'team-dev-2026q1')
 
     def test_mask_resolves_key_id_via_registry(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

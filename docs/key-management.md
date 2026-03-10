@@ -1,4 +1,4 @@
-# Key Management
+﻿# Key Management
 
 ## Goal
 
@@ -85,6 +85,18 @@ List registered entries:
 python -m codemosaic list-key-sources ./your-repo
 ```
 
+Update lifecycle state:
+
+```bash
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+```
+
+Registry entries support these states:
+
+- `active`: valid for new encryption and decrypt operations
+- `decrypt-only`: valid only for decrypt and rekey flows
+- `retired`: excluded from registry-based automatic resolution
+
 Then policy may reference only the key ID:
 
 ```yaml
@@ -121,7 +133,15 @@ Generate a new key and rewrap mappings:
 $env:OLD_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev.key
 $env:NEW_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev-v2.key
 python -m codemosaic rekey-runs ./your-repo --key-env OLD_CODEMOSAIC_KEY --new-key-env NEW_CODEMOSAIC_KEY --new-key-id team-dev-2026q2 --encryption-provider managed-v1
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2025q4 --status retired
 ```
+
+Recommended lifecycle during rotation:
+
+1. Register the replacement key as `active`.
+2. Move the previous key to `decrypt-only` so historical mappings remain readable.
+3. Move older keys to `retired` after rewrap or retention expiry.
 
 ## Metadata
 
@@ -140,3 +160,5 @@ This header is intentionally limited and does not expose the full decrypted mapp
 - This is still an open-source prototype, not a formally audited KMS
 - Secret-manager integrations are not implemented yet
 - High-sensitivity environments should still layer DLP, audit, and stronger enterprise key controls
+
+

@@ -12,6 +12,7 @@ from codemosaic.crypto import MANAGED_PROVIDER_ID
 
 
 SUPPORTED_KEY_SOURCES = {'env', 'file'}
+SUPPORTED_KEY_STATUSES = {'active', 'decrypt-only', 'retired'}
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +112,7 @@ def load_key_registry(path: Path) -> list[RegisteredKeySource]:
                 source=source,
                 reference=reference,
                 provider=str(item.get('provider', MANAGED_PROVIDER_ID) or MANAGED_PROVIDER_ID),
-                status=str(item.get('status', 'active') or 'active'),
+                status=_normalize_status(item.get('status', 'active')),
                 created_at=str(item.get('created_at')) if item.get('created_at') is not None else None,
                 notes=str(item.get('notes')) if item.get('notes') is not None else None,
             )
@@ -120,11 +121,19 @@ def load_key_registry(path: Path) -> list[RegisteredKeySource]:
 
 
 
-def find_registered_key_source(path: Path, key_id: str) -> RegisteredKeySource | None:
+def find_registered_key_source(
+    path: Path,
+    key_id: str,
+    *,
+    allowed_statuses: set[str] | None = None,
+) -> RegisteredKeySource | None:
     normalized = key_id.strip()
     for entry in load_key_registry(path):
-        if entry.key_id == normalized:
-            return entry
+        if entry.key_id != normalized:
+            continue
+        if allowed_statuses is not None and entry.status not in allowed_statuses:
+            return None
+        return entry
     return None
 
 
@@ -142,13 +151,14 @@ def register_key_source(
     normalized_source = source.strip()
     if normalized_source not in SUPPORTED_KEY_SOURCES:
         raise ValueError(f"unsupported key management source: '{normalized_source}'")
+    normalized_status = _normalize_status(status)
     timestamp = datetime.now().isoformat(timespec='seconds')
     entry = RegisteredKeySource(
         key_id=key_id.strip(),
         source=normalized_source,
         reference=reference.strip(),
         provider=provider.strip() or MANAGED_PROVIDER_ID,
-        status=status.strip() or 'active',
+        status=normalized_status,
         created_at=timestamp,
         notes=notes.strip() if isinstance(notes, str) and notes.strip() else None,
     )
@@ -178,6 +188,35 @@ def register_key_source(
 
 
 
+def update_key_source_status(path: Path, *, key_id: str, status: str) -> RegisteredKeySource:
+    normalized_key_id = key_id.strip()
+    normalized_status = _normalize_status(status)
+    existing = load_key_registry(path)
+    if not existing:
+        raise ValueError(f'key registry is empty: {path}')
+    updated: list[RegisteredKeySource] = []
+    selected: RegisteredKeySource | None = None
+    for current in existing:
+        if current.key_id == normalized_key_id:
+            selected = RegisteredKeySource(
+                key_id=current.key_id,
+                source=current.source,
+                reference=current.reference,
+                provider=current.provider,
+                status=normalized_status,
+                created_at=current.created_at,
+                notes=current.notes,
+            )
+            updated.append(selected)
+        else:
+            updated.append(current)
+    if selected is None:
+        raise ValueError(f"key id not found in registry: '{normalized_key_id}'")
+    write_key_registry(path, updated)
+    return selected
+
+
+
 def write_key_registry(path: Path, entries: list[RegisteredKeySource]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -199,6 +238,7 @@ def resolve_key_material(
     policy: KeyManagementConfig | None = None,
     policy_base_dir: Path | None = None,
     registry_path: Path | None = None,
+    usage_mode: str = 'encrypt',
     required: bool = False,
     missing_message: str,
     key_env_option: str = '--key-env',
@@ -252,7 +292,10 @@ def resolve_key_material(
             registry_path=str(registry_path) if registry_path else None,
         )
     if effective_key_id and registry_path is not None:
-        entry = find_registered_key_source(registry_path, effective_key_id)
+        raw_entry = find_registered_key_source(registry_path, effective_key_id)
+        if raw_entry is not None and not _status_allows_usage(raw_entry.status, usage_mode):
+            raise ValueError(_status_block_message(raw_entry.key_id, raw_entry.status, usage_mode))
+        entry = find_registered_key_source(registry_path, effective_key_id, allowed_statuses=_allowed_statuses_for_usage(usage_mode))
         if entry is not None:
             value = _read_source(entry.source, entry.reference, base_dir=registry_path.parent)
             return ResolvedKeyMaterial(
@@ -318,3 +361,32 @@ def _read_source(source: str | None, reference: str | None, base_dir: Path | Non
     if not value:
         raise ValueError(f'key file is empty: {key_file}')
     return value
+
+
+
+def _normalize_status(value: object) -> str:
+    normalized = str(value or 'active').strip().lower()
+    if normalized not in SUPPORTED_KEY_STATUSES:
+        raise ValueError(f"unsupported key status: '{normalized}'")
+    return normalized
+
+
+
+def _allowed_statuses_for_usage(usage_mode: str) -> set[str]:
+    if usage_mode == 'decrypt':
+        return {'active', 'decrypt-only'}
+    if usage_mode == 'encrypt':
+        return {'active'}
+    raise ValueError(f"unsupported key usage mode: '{usage_mode}'")
+
+
+
+def _status_allows_usage(status: str, usage_mode: str) -> bool:
+    return status in _allowed_statuses_for_usage(usage_mode)
+
+
+
+def _status_block_message(key_id: str, status: str, usage_mode: str) -> str:
+    if usage_mode == 'encrypt':
+        return f"key '{key_id}' is marked '{status}' and cannot be used for new encryption operations"
+    return f"key '{key_id}' is marked '{status}' and cannot be used for decrypt operations"
