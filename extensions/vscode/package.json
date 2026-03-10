@@ -15,6 +15,7 @@
   "activationEvents": [
     "onView:codemosaicRuns",
     "onCommand:codemosaic.quickWorkflow",
+    "onCommand:codemosaic.setupSecureWorkspace",
     "onCommand:codemosaic.initPolicyPreset",
     "onCommand:codemosaic.scanWorkspace",
     "onCommand:codemosaic.leakageReport",
@@ -37,6 +38,10 @@
       {
         "command": "codemosaic.quickWorkflow",
         "title": "CodeMosaic: Quick Workflow"
+      },
+      {
+        "command": "codemosaic.setupSecureWorkspace",
+        "title": "CodeMosaic: Initialize Secure Workspace"
       },
       {
         "command": "codemosaic.initPolicyPreset",
@@ -130,6 +135,10 @@
       "commandPalette": [
         {
           "command": "codemosaic.quickWorkflow",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
+          "command": "codemosaic.setupSecureWorkspace",
           "when": "workspaceFolderCount != 0"
         },
         {

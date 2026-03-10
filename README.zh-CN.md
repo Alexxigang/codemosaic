@@ -76,7 +76,15 @@ CodeMosaic 想做的是再走一步，而且是从“企业真实可用”的角
 - 本地可用 Git
 - 如果要试 VS Code 原型，可选 Node.js + VS Code
 
-### 0) 初始化一份策略预设
+### 0) 推荐：一键初始化安全工作区
+
+```bash
+python -m codemosaic setup-workspace ./your-repo --preset balanced-ai-gateway --key-prefix team-dev
+```
+
+这一步会一次性生成工作区 policy、托管密钥文件和本地 key registry。
+
+### 0b) 仅初始化策略预设
 
 ```bash
 python -m codemosaic list-policy-presets
@@ -251,7 +259,7 @@ python -m codemosaic mask-segmented ./your-repo --policy policy.sample.yaml --ou
 
 仓库内包含 `extensions/vscode` 原型扩展，可以进入编辑器中直接调用本地工作流。
 
-它现在支持 `CodeMosaic: Initialize Policy Preset`，可以在编辑器里一键生成工作区 policy，并自动把扩展配置指向这个文件。
+它现在支持 `CodeMosaic: Initialize Secure Workspace`，可以在编辑器里一键生成工作区 policy、托管密钥和 registry；如果只想初始化 policy，也可以继续使用 `CodeMosaic: Initialize Policy Preset`。
 
 ```bash
 python scripts/package_vscode_extension.py --overwrite

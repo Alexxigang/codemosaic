@@ -84,7 +84,15 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Git available locally for patch application flows
 - Optional: Node.js + VS Code if you want the extension prototype
 
-### 0) Bootstrap a policy preset
+### 0) Recommended: bootstrap a secure workspace
+
+```bash
+python -m codemosaic setup-workspace ./your-repo --preset balanced-ai-gateway --key-prefix team-dev
+```
+
+This creates a workspace policy, managed key files, and a local key registry in one step.
+
+### 0b) Policy-only bootstrap
 
 ```bash
 python -m codemosaic list-policy-presets
@@ -391,7 +399,7 @@ The extension is intentionally lightweight and prototype-grade, but it tells the
 - analyze leakage
 - attempt safe export
 
-The new `CodeMosaic: Initialize Policy Preset` command writes a ready-to-use workspace policy and points the extension at it automatically.
+The new `CodeMosaic: Initialize Secure Workspace` command bootstraps policy, managed keys, and registry entries in one flow, while `CodeMosaic: Initialize Policy Preset` remains available for policy-only setup.
 
 ## Docs index
 

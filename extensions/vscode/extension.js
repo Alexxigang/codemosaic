@@ -12,6 +12,7 @@ function activate(context) {
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('codemosaicRuns', runsProvider),
     vscode.commands.registerCommand('codemosaic.quickWorkflow', () => quickWorkflow(output, runsProvider)),
+    vscode.commands.registerCommand('codemosaic.setupSecureWorkspace', () => setupSecureWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.initPolicyPreset', () => initPolicyPreset(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.scanWorkspace', () => scanWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.leakageReport', () => leakageReport(output, runsProvider)),
@@ -121,6 +122,7 @@ async function quickWorkflow(output, runsProvider) {
   const recentRuns = getRecentRuns(workspaceRoot);
   const latestRun = recentRuns[0] || null;
   const picks = [
+    { label: 'Initialize secure workspace', detail: 'Bootstrap policy, managed keys, and registry entries for this workspace', run: () => setupSecureWorkspace(output, runsProvider) },
     { label: 'Initialize policy preset', detail: 'Bootstrap a ready-to-use policy file for this workspace', run: () => initPolicyPreset(output, runsProvider) },
     { label: 'Scan workspace', detail: 'Run CodeMosaic scan on the current workspace', run: () => scanWorkspace(output, runsProvider) },
     { label: 'Analyze semantic leakage', detail: 'Estimate business meaning that still leaks after masking', run: () => leakageReport(output, runsProvider) },
@@ -208,21 +210,94 @@ async function quickWorkflow(output, runsProvider) {
   }
 }
 
+async function setupSecureWorkspace(output, runsProvider) {
+  const workspaceRoot = await requireWorkspaceRoot();
+  if (!workspaceRoot) {
+    return;
+  }
+  const selectedPreset = await choosePolicyPreset();
+  if (!selectedPreset) {
+    return;
+  }
+  const config = vscode.workspace.getConfiguration('codemosaic');
+  const configuredPolicy = config.get('policyPath', 'policy.codemosaic.yaml');
+  const defaultOutput = configuredPolicy || 'policy.codemosaic.yaml';
+  const requestedOutput = await vscode.window.showInputBox({
+    title: 'Workspace policy path to create',
+    value: defaultOutput,
+    ignoreFocusOut: true,
+    validateInput: (value) => (value && value.trim() ? undefined : 'Policy output path is required')
+  });
+  if (!requestedOutput) {
+    return;
+  }
+  const defaultKeyPrefix = path.basename(workspaceRoot);
+  const requestedKeyPrefix = await vscode.window.showInputBox({
+    title: 'Managed key prefix',
+    value: defaultKeyPrefix,
+    ignoreFocusOut: true,
+    validateInput: (value) => (value && value.trim() ? undefined : 'Key prefix is required')
+  });
+  if (!requestedKeyPrefix) {
+    return;
+  }
+  const signingChoice = await vscode.window.showQuickPick(
+    [
+      { label: 'Managed mapping + signing keys', withoutSigningKey: false },
+      { label: 'Managed mapping key only', withoutSigningKey: true }
+    ],
+    { title: 'Choose workspace security posture' }
+  );
+  if (!signingChoice) {
+    return;
+  }
+  const outputPath = path.isAbsolute(requestedOutput) ? requestedOutput : path.join(workspaceRoot, requestedOutput);
+  const args = [
+    'setup-workspace',
+    workspaceRoot,
+    '--preset', selectedPreset.presetId,
+    '--policy-output', outputPath,
+    '--key-prefix', requestedKeyPrefix
+  ];
+  if (signingChoice.withoutSigningKey) {
+    args.push('--without-signing-key');
+  }
+  const overwriteTargets = [outputPath, path.join(workspaceRoot, '.codemosaic', 'keys', `${normalizeKeyPrefix(requestedKeyPrefix)}-mapping.key`)];
+  if (!signingChoice.withoutSigningKey) {
+    overwriteTargets.push(path.join(workspaceRoot, '.codemosaic', 'keys', `${normalizeKeyPrefix(requestedKeyPrefix)}-signing.key`));
+  }
+  if (overwriteTargets.some((candidate) => fs.existsSync(candidate))) {
+    const overwriteChoice = await vscode.window.showQuickPick(
+      [
+        { label: 'Overwrite onboarding files', force: true },
+        { label: 'Cancel', force: false }
+      ],
+      { title: 'Some workspace bootstrap files already exist' }
+    );
+    if (!overwriteChoice || !overwriteChoice.force) {
+      return;
+    }
+    args.push('--force');
+  }
+  const result = await runCodeMosaic(args, { cwd: workspaceRoot }, output);
+  if (!result) {
+    return;
+  }
+  const policySetting = normalizePolicySetting(workspaceRoot, outputPath);
+  if (policySetting) {
+    await config.update('policyPath', policySetting, vscode.ConfigurationTarget.Workspace);
+  }
+  runsProvider.refresh();
+  vscode.window.showInformationMessage(`CodeMosaic secure workspace ready: ${outputPath}`);
+  openIfExists(outputPath);
+}
+
 async function initPolicyPreset(output, runsProvider) {
   const workspaceRoot = await requireWorkspaceRoot();
   if (!workspaceRoot) {
     return;
   }
-  const presetChoices = [
-    { label: 'Balanced AI Gateway', presetId: 'balanced-ai-gateway', detail: 'Default for most application repositories and first external-AI pilots' },
-    { label: 'Strict AI Gateway', presetId: 'strict-ai-gateway', detail: 'For internal platforms, core algorithms, finance, and security-sensitive services' },
-    { label: 'Public SDK AI Gateway', presetId: 'public-sdk-ai-gateway', detail: 'For SDKs, examples, and semi-public integration code' }
-  ];
-  const selectedPreset = await vscode.window.showQuickPick(presetChoices, {
-    title: 'Choose a CodeMosaic policy preset',
-    matchOnDescription: true,
-    matchOnDetail: true
-  });
+  const selectedPreset = await choosePolicyPreset();
   if (!selectedPreset) {
     return;
   }
@@ -993,6 +1068,21 @@ async function chooseMappingFile(workspaceRoot) {
   return selected;
 }
 
+async function choosePolicyPreset() {
+  return vscode.window.showQuickPick(
+    [
+      { label: 'Balanced AI Gateway', presetId: 'balanced-ai-gateway', detail: 'Default for most application repositories and first external-AI pilots' },
+      { label: 'Strict AI Gateway', presetId: 'strict-ai-gateway', detail: 'For internal platforms, core algorithms, finance, and security-sensitive services' },
+      { label: 'Public SDK AI Gateway', presetId: 'public-sdk-ai-gateway', detail: 'For SDKs, examples, and semi-public integration code' }
+    ],
+    {
+      title: 'Choose a CodeMosaic policy preset',
+      matchOnDescription: true,
+      matchOnDetail: true
+    }
+  );
+}
+
 function resolveConfiguredPolicy(workspaceRoot) {
   const configured = vscode.workspace.getConfiguration('codemosaic').get('policyPath', 'policy.codemosaic.yaml');
   if (!configured) {
@@ -1004,6 +1094,10 @@ function resolveConfiguredPolicy(workspaceRoot) {
   }
   const legacyCandidate = path.join(workspaceRoot, 'policy.sample.yaml');
   return fs.existsSync(legacyCandidate) ? legacyCandidate : null;
+}
+
+function normalizeKeyPrefix(value) {
+  return String(value || 'workspace').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'workspace';
 }
 
 function normalizePolicySetting(workspaceRoot, outputPath) {

@@ -25,6 +25,7 @@ from codemosaic.runs import audit_run_mappings, rekey_run_mappings
 from codemosaic.scanning import scan_workspace
 from codemosaic.segmentation import mask_segmented_workspace, plan_mask_segments, write_segment_plan
 from codemosaic.workspace import mask_workspace, resolve_workspace_mapping_policy
+from codemosaic.workspace_setup import setup_workspace_from_preset
 
 
 LEAKAGE_BUDGET_EXIT_CODE = 3
@@ -121,6 +122,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_key_material_arguments(rekey_runs_parser)
     _add_new_key_material_arguments(rekey_runs_parser)
     _add_signature_material_arguments(rekey_runs_parser)
+
+    setup_workspace_parser = subparsers.add_parser('setup-workspace', help='Bootstrap a secure workspace policy, key files, and registry entries')
+    setup_workspace_parser.add_argument('workspace', type=Path)
+    setup_workspace_parser.add_argument('--preset', type=str, default='balanced-ai-gateway')
+    setup_workspace_parser.add_argument('--policy-output', type=Path, default=None)
+    setup_workspace_parser.add_argument('--key-prefix', type=str, default=None)
+    setup_workspace_parser.add_argument('--without-signing-key', action='store_true')
+    setup_workspace_parser.add_argument('--key-format', choices=['base64', 'hex'], default='base64')
+    setup_workspace_parser.add_argument('--key-length', type=int, default=32)
+    setup_workspace_parser.add_argument('--force', action='store_true')
 
     audit_runs_parser = subparsers.add_parser(
         'audit-runs',
@@ -534,6 +545,42 @@ def main(argv: list[str] | None = None) -> int:
             print(f'output mode: {mode}')
             return 0
 
+
+        if args.command == 'setup-workspace':
+            workspace_root = args.workspace.resolve()
+            policy_output = args.policy_output.resolve() if args.policy_output else None
+            result = setup_workspace_from_preset(
+                workspace_root,
+                preset_name=args.preset,
+                policy_output=policy_output,
+                key_prefix=args.key_prefix or workspace_root.name,
+                force=args.force,
+                include_signing_key=not args.without_signing_key,
+                key_length=args.key_length,
+                key_format=args.key_format,
+            )
+            append_audit_event(
+                workspace_root,
+                'setup-workspace',
+                preset=result['preset_id'],
+                policy_path=result['policy_path'],
+                registry_path=result['registry_path'],
+                mapping_key_id=result['mapping_key_id'],
+                signing_key_id=result['signing_key_id'],
+            )
+            print(f"workspace: {result['workspace_root']}")
+            print(f"policy file: {result['policy_path']}")
+            print(f"preset: {result['preset_id']}")
+            print(f"key registry: {result['registry_path']}")
+            print(f"mapping key id: {result['mapping_key_id']}")
+            print(f"mapping key file: {result['mapping_key_file']}")
+            if result['signing_key_id']:
+                print(f"signing key id: {result['signing_key_id']}")
+                print(f"signing key file: {result['signing_key_file']}")
+            else:
+                print('signing key: disabled')
+            print('next step: run mask with --policy pointing at the generated workspace policy')
+            return 0
 
         if args.command == 'audit-runs':
             workspace_root = args.workspace.resolve()
