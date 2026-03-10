@@ -46,6 +46,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - `leakage-report` for semantic leakage scoring and gating
 - `bundle` for Markdown context export to external AI tools
 - `unmask-patch` to translate masked diffs back to original symbols
+- `verify-mapping` to validate tamper-evident mapping signatures
 - `apply` to apply translated patches with `git apply`
 - `rekey-mapping` and `rekey-runs` for mapping re-protection
 - `generate-key` to create high-entropy managed mapping keys
@@ -59,6 +60,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Managed-key workflow with `managed-v1`
 - Policy-backed key source references from env vars or files
 - Key lifecycle states: `active`, `decrypt-only`, and `retired`
+- Tamper-evident mapping signatures for audit-ready integrity checks
 - Key IDs recorded in mapping metadata and encrypted envelope headers
 - Leakage budget thresholds for total and per-file risk
 - Segment-aware masking rules for tighter sharing boundaries
@@ -237,6 +239,16 @@ Recommended lifecycle during rotation:
 1. Keep the new key `active`.
 2. Move the previous key to `decrypt-only` so historical runs still translate.
 3. Move older keys to `retired` once related mappings are fully rewrapped or expired.
+
+### Integrity signatures
+
+CodeMosaic can now sign mapping files with a dedicated audit key so teams can verify that a mapping envelope was not tampered with before unmasking AI output.
+
+```bash
+python -m codemosaic verify-mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature
+```
+
+This works for both plaintext and encrypted mappings. For encrypted mappings, the signature covers the envelope metadata and ciphertext without exposing decrypted content.
 
 ### Metadata and auditability
 

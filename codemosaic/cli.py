@@ -16,7 +16,7 @@ from codemosaic.key_management import (
     update_key_source_status,
 )
 from codemosaic.leakage import evaluate_leakage_budget, has_leakage_budget, leakage_report, write_leakage_report
-from codemosaic.mapping import rewrap_mapping_file
+from codemosaic.mapping import rewrap_mapping_file, verify_mapping_file
 from codemosaic.patching import apply_patch_file, translate_patch_file
 from codemosaic.policy import MaskPolicy, load_policy
 from codemosaic.runs import rekey_run_mappings
@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     mask_parser.add_argument('--encrypt-mapping', action='store_true')
     mask_parser.add_argument('--encryption-provider', type=str, default=None)
     _add_key_material_arguments(mask_parser)
+    _add_signature_material_arguments(mask_parser)
 
     segmented_parser = subparsers.add_parser('mask-segmented', help='Generate multiple masked workspaces grouped by policy segments')
     segmented_parser.add_argument('source', type=Path)
@@ -50,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     segmented_parser.add_argument('--encrypt-mapping', action='store_true')
     segmented_parser.add_argument('--encryption-provider', type=str, default=None)
     _add_key_material_arguments(segmented_parser)
+    _add_signature_material_arguments(segmented_parser)
 
     segment_plan_parser = subparsers.add_parser('plan-segments', help='Preview masking segments derived from policy rules')
     segment_plan_parser.add_argument('source', type=Path)
@@ -81,6 +83,13 @@ def build_parser() -> argparse.ArgumentParser:
     unmask_parser.add_argument('--mapping', type=Path, required=True)
     unmask_parser.add_argument('--output', type=Path, default=Path('translated.patch'))
     _add_key_material_arguments(unmask_parser)
+    _add_signature_material_arguments(unmask_parser)
+
+
+    verify_parser = subparsers.add_parser('verify-mapping', help='Verify mapping integrity signature metadata')
+    verify_parser.add_argument('mapping', type=Path)
+    verify_parser.add_argument('--require-signature', action='store_true')
+    _add_signature_material_arguments(verify_parser)
 
     apply_parser = subparsers.add_parser('apply', help='Apply a translated patch with git apply')
     apply_parser.add_argument('patch', type=Path)
@@ -97,6 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     rekey_parser.add_argument('--encryption-provider', type=str, default=None)
     _add_key_material_arguments(rekey_parser)
     _add_new_key_material_arguments(rekey_parser)
+    _add_signature_material_arguments(rekey_parser)
 
     rekey_runs_parser = subparsers.add_parser(
         'rekey-runs',
@@ -107,6 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     rekey_runs_parser.add_argument('--encryption-provider', type=str, default=None)
     _add_key_material_arguments(rekey_runs_parser)
     _add_new_key_material_arguments(rekey_runs_parser)
+    _add_signature_material_arguments(rekey_runs_parser)
 
     generate_key_parser = subparsers.add_parser('generate-key', help='Generate high-entropy mapping key material')
     generate_key_parser.add_argument('--output', type=Path, default=None)
@@ -156,6 +167,13 @@ def main(argv: list[str] | None = None) -> int:
                 provider_override=args.encryption_provider,
             )
             registry_path = _resolve_registry_path(args, workspace_root=source_root, policy=policy)
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=source_root,
+                policy=policy,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            ) or registry_path
             key_material = _resolve_active_key_material(
                 args,
                 policy,
@@ -168,6 +186,13 @@ def main(argv: list[str] | None = None) -> int:
                     else 'encrypted mapping requires --key-env/--key-file, --passphrase-env/--passphrase-file, or a matching key registry entry'
                 ),
             )
+            signature_material = _resolve_signature_material(
+                args,
+                policy,
+                registry_path=signature_registry_path,
+                usage_mode='encrypt',
+                required=False,
+            )
             report = mask_workspace(
                 source_root,
                 output_root,
@@ -176,6 +201,8 @@ def main(argv: list[str] | None = None) -> int:
                 mapping_passphrase=key_material.secret,
                 mapping_encryption_provider=args.encryption_provider,
                 mapping_key_metadata=key_material.to_metadata() if key_material.secret else None,
+                mapping_signing_key=signature_material.secret,
+                mapping_signature_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
             print(f'masked workspace: {report.output_root}')
             print(f'mapping file: {report.mapping_file}')
@@ -195,6 +222,13 @@ def main(argv: list[str] | None = None) -> int:
                 provider_override=args.encryption_provider,
             )
             registry_path = _resolve_registry_path(args, workspace_root=source_root, policy=policy)
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=source_root,
+                policy=policy,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            ) or registry_path
             key_material = _resolve_active_key_material(
                 args,
                 policy,
@@ -207,6 +241,13 @@ def main(argv: list[str] | None = None) -> int:
                     else 'encrypted mapping requires --key-env/--key-file, --passphrase-env/--passphrase-file, or a matching key registry entry'
                 ),
             )
+            signature_material = _resolve_signature_material(
+                args,
+                policy,
+                registry_path=signature_registry_path,
+                usage_mode='encrypt',
+                required=False,
+            )
             result = mask_segmented_workspace(
                 source_root,
                 output_root,
@@ -215,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
                 mapping_passphrase=key_material.secret,
                 mapping_encryption_provider=args.encryption_provider,
                 mapping_key_metadata=key_material.to_metadata() if key_material.secret else None,
+                mapping_signing_key=signature_material.secret,
+                mapping_signature_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
             summary_file = output_root / 'segmented-mask-summary.json'
             summary_file.write_text(json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding='utf-8')
@@ -295,7 +338,23 @@ def main(argv: list[str] | None = None) -> int:
                 workspace_root=_infer_workspace_root_from_mapping(mapping_file),
                 policy=None,
             )
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=_infer_workspace_root_from_mapping(mapping_file),
+                policy=None,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            ) or registry_path
             key_material = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
+            signature_material = _resolve_signature_material(
+                args,
+                None,
+                registry_path=signature_registry_path,
+                usage_mode='decrypt',
+                required=False,
+            )
+            if signature_material.secret:
+                verify_mapping_file(mapping_file, signing_key=signature_material.secret, require_signature=False)
             output_file = translate_patch_file(
                 args.patch.resolve(),
                 mapping_file,
@@ -303,6 +362,39 @@ def main(argv: list[str] | None = None) -> int:
                 passphrase=key_material.secret,
             )
             print(f'translated patch: {output_file}')
+            return 0
+
+
+        if args.command == 'verify-mapping':
+            mapping_file = args.mapping.resolve()
+            workspace_root = _infer_workspace_root_from_mapping(mapping_file)
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=workspace_root,
+                policy=None,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            )
+            signature_material = _resolve_signature_material(
+                args,
+                None,
+                registry_path=signature_registry_path,
+                usage_mode='decrypt',
+                required=args.require_signature,
+            )
+            status = verify_mapping_file(
+                mapping_file,
+                signing_key=signature_material.secret,
+                require_signature=args.require_signature,
+            )
+            print(f'mapping file: {mapping_file}')
+            print(f"signed: {'yes' if status.present else 'no'}")
+            if status.present:
+                print(f"verified: {'yes' if status.verified else 'no'}")
+                print(f'scope: {status.scope}')
+                print(f'algorithm: {status.algorithm}')
+                if status.key_id:
+                    print(f'key id: {status.key_id}')
             return 0
 
         if args.command == 'apply':
@@ -323,15 +415,31 @@ def main(argv: list[str] | None = None) -> int:
             workspace_root = _infer_workspace_root_from_mapping(mapping_file)
             registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
             new_registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None, registry_attr='new_key_registry') or registry_path
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=workspace_root,
+                policy=None,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            ) or registry_path
             current_key = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
             new_key = _resolve_new_key_material(args, registry_path=new_registry_path, usage_mode='encrypt')
+            signature_material = _resolve_signature_material(
+                args,
+                None,
+                registry_path=signature_registry_path,
+                usage_mode='encrypt',
+                required=False,
+            )
             output_file = rewrap_mapping_file(
                 mapping_file,
                 output_path=args.output.resolve() if args.output else None,
                 passphrase=current_key.secret,
                 new_passphrase=new_key.secret,
                 encryption_provider=args.encryption_provider,
-                metadata_overrides=_build_rekey_metadata(new_key, args.encryption_provider),
+                metadata_overrides=_build_rekey_metadata(new_key, args.encryption_provider, signature_material),
+                signing_key=signature_material.secret,
+                signing_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
             mode = 'encrypted' if new_key.secret else 'plaintext'
             print(f'rewrapped mapping: {output_file}')
@@ -342,15 +450,31 @@ def main(argv: list[str] | None = None) -> int:
             workspace_root = args.workspace.resolve()
             registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
             new_registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None, registry_attr='new_key_registry') or registry_path
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=workspace_root,
+                policy=None,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            ) or registry_path
             current_key = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
             new_key = _resolve_new_key_material(args, registry_path=new_registry_path, usage_mode='encrypt')
+            signature_material = _resolve_signature_material(
+                args,
+                None,
+                registry_path=signature_registry_path,
+                usage_mode='encrypt',
+                required=False,
+            )
             output_files = rekey_run_mappings(
                 workspace_root,
                 passphrase=current_key.secret,
                 new_passphrase=new_key.secret,
                 encryption_provider=args.encryption_provider,
                 limit=args.limit,
-                metadata_overrides=_build_rekey_metadata(new_key, args.encryption_provider),
+                metadata_overrides=_build_rekey_metadata(new_key, args.encryption_provider, signature_material),
+                signing_key=signature_material.secret,
+                signing_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
             if not output_files:
                 print('rekeyed runs: 0')
@@ -479,6 +603,14 @@ def _add_new_key_material_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 
+def _add_signature_material_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--signing-key-env', type=str, default=None, help='Environment variable containing mapping signing key material')
+    parser.add_argument('--signing-key-file', type=Path, default=None, help='File containing mapping signing key material')
+    parser.add_argument('--signing-key-id', type=str, default=None, help='Logical key identifier for mapping signing key resolution')
+    parser.add_argument('--signing-key-registry', type=Path, default=None, help='Optional key registry file for signature key lookup')
+
+
+
 def _resolve_active_key_material(
     args: argparse.Namespace,
     policy: MaskPolicy | None,
@@ -524,21 +656,48 @@ def _resolve_new_key_material(args: argparse.Namespace, *, registry_path: Path |
 
 
 
+def _resolve_signature_material(
+    args: argparse.Namespace,
+    policy: MaskPolicy | None,
+    *,
+    registry_path: Path | None,
+    usage_mode: str,
+    required: bool,
+):
+    return resolve_key_material(
+        key_env=getattr(args, 'signing_key_env', None),
+        key_file=getattr(args, 'signing_key_file', None),
+        key_id=getattr(args, 'signing_key_id', None),
+        passphrase_env=None,
+        passphrase_file=None,
+        policy=_policy_signature_management(policy),
+        policy_base_dir=_policy_base_dir(policy),
+        registry_path=registry_path,
+        usage_mode=usage_mode,
+        required=required,
+        missing_message='mapping signature verification requires --signing-key-env/--signing-key-file or a matching key registry entry',
+        key_env_option='--signing-key-env',
+        key_file_option='--signing-key-file',
+    )
+
+
+
 def _resolve_registry_path(
     args: argparse.Namespace,
     *,
     workspace_root: Path | None,
     policy: MaskPolicy | None,
     registry_attr: str = 'key_registry',
+    policy_config_attr: str = 'key_management',
 ) -> Path | None:
     explicit = getattr(args, registry_attr, None)
     if explicit is not None:
         return explicit.resolve()
-    if registry_attr == 'key_registry' and policy is not None:
-        mapping_key = policy.mapping.key_management
-        if mapping_key.registry_file:
+    if policy is not None and policy_config_attr:
+        mapping_config = getattr(policy.mapping, policy_config_attr, None)
+        if mapping_config is not None and getattr(mapping_config, 'registry_file', None):
             base_dir = _policy_base_dir(policy)
-            registry_file = Path(mapping_key.registry_file)
+            registry_file = Path(mapping_config.registry_file)
             if not registry_file.is_absolute() and base_dir is not None:
                 return (base_dir / registry_file).resolve()
             return registry_file.resolve()
@@ -556,11 +715,29 @@ def _has_key_material_inputs(args: argparse.Namespace) -> bool:
 
 
 
+def _has_signature_inputs(args: argparse.Namespace) -> bool:
+    return any(
+        getattr(args, name, None)
+        for name in ('signing_key_env', 'signing_key_file', 'signing_key_id')
+    )
+
+
+
 def _policy_key_management(policy: MaskPolicy | None) -> KeyManagementConfig | None:
+    return _policy_secret_management(policy, 'key_management')
+
+
+
+def _policy_signature_management(policy: MaskPolicy | None) -> KeyManagementConfig | None:
+    return _policy_secret_management(policy, 'signature_management')
+
+
+
+def _policy_secret_management(policy: MaskPolicy | None, field_name: str) -> KeyManagementConfig | None:
     if policy is None:
         return None
-    mapping_key = policy.mapping.key_management
-    if not (mapping_key.source or mapping_key.key_id):
+    mapping_key = getattr(policy.mapping, field_name, None)
+    if mapping_key is None or not (mapping_key.source or mapping_key.key_id):
         return None
     return KeyManagementConfig(
         source=mapping_key.source,
@@ -586,16 +763,16 @@ def _infer_workspace_root_from_mapping(mapping_file: Path) -> Path | None:
 
 
 
-def _build_rekey_metadata(key_material, encryption_provider: str | None) -> dict[str, object]:
-    if key_material.secret:
-        return {
-            'key_management': key_material.to_metadata(),
-            'encryption_provider': encryption_provider,
-        }
-    return {
-        'key_management': {'enabled': False},
-        'encryption_provider': None,
+def _build_rekey_metadata(key_material, encryption_provider: str | None, signature_material=None) -> dict[str, object]:
+    metadata: dict[str, object] = {
+        'key_management': key_material.to_metadata() if key_material.secret else {'enabled': False},
+        'encryption_provider': encryption_provider if key_material.secret else None,
     }
+    if signature_material is not None and signature_material.secret:
+        metadata['signature_management'] = signature_material.to_metadata()
+    elif signature_material is not None:
+        metadata['signature_management'] = {'enabled': False}
+    return metadata
 
 
 if __name__ == '__main__':

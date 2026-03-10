@@ -143,6 +143,22 @@ Recommended lifecycle during rotation:
 2. Move the previous key to `decrypt-only` so historical mappings remain readable.
 3. Move older keys to `retired` after rewrap or retention expiry.
 
+## Integrity signatures
+
+CodeMosaic can optionally sign mapping files with a dedicated audit key. This allows downstream patch translation or CI workflows to verify that the mapping file was not tampered with after generation.
+
+Example:
+
+```bash
+python -m codemosaic verify-mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature
+```
+
+Recommended usage:
+
+- keep mapping encryption and integrity signing on separate secrets
+- keep the active signing key in `active` status for new signatures
+- move old signing keys to `decrypt-only` when they should verify historical mappings but stop signing new ones
+
 ## Metadata
 
 Encrypted mapping envelopes keep a safe header with selected metadata such as:

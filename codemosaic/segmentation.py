@@ -88,6 +88,8 @@ def mask_segmented_workspace(
     mapping_passphrase: str | None = None,
     mapping_encryption_provider: str | None = None,
     mapping_key_metadata: dict[str, object] | None = None,
+    mapping_signing_key: str | None = None,
+    mapping_signature_metadata: dict[str, object] | None = None,
 ) -> SegmentedMaskResult:
     segments = plan_mask_segments(source_root, output_root, policy)
     reports: list[RunReport] = []
@@ -106,6 +108,8 @@ def mask_segmented_workspace(
             mapping_passphrase=segment_passphrase,
             mapping_encryption_provider=segment_provider,
             mapping_key_metadata=mapping_key_metadata,
+            mapping_signing_key=mapping_signing_key,
+            mapping_signature_metadata=mapping_signature_metadata,
         )
         reports.append(report)
     return SegmentedMaskResult(

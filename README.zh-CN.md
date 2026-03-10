@@ -46,6 +46,7 @@ CodeMosaic 想继续往前走三步：
 - `leakage-report`：评估语义泄漏分数与阈值结果
 - `bundle`：构建给外部 AI 使用的 Markdown 上下文包
 - `unmask-patch`：把 mask 后补丁翻译回原始符号
+- `verify-mapping`??? mapping ?????
 - `apply`：调用 `git apply` 应用翻译后的补丁
 - `rekey-mapping` 与 `rekey-runs`：重包裹 mapping，支持轮换密钥
 - `generate-key`：生成高熵 mapping 密钥
@@ -59,6 +60,7 @@ CodeMosaic 想继续往前走三步：
 - 支持 `managed-v1` 托管密钥流程
 - 支持从 `env` / `file` 解析密钥来源
 - 支持 `active` / `decrypt-only` / `retired` 三种密钥状态
+- ????? mapping ??????????
 - 支持记录 `key_id`，便于轮换和审计
 - 支持总分与单文件级别的泄漏预算阈值
 - 支持按路径分段的 masking 策略
@@ -189,6 +191,16 @@ python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2025q4 
 1. 新密钥保持 `active`。
 2. 上一把密钥切到 `decrypt-only`，保证历史 run 还能继续翻译补丁。
 3. 更老的密钥在相关 mapping 完成 rewrap 或过期后再切到 `retired`。
+
+### ????
+
+CodeMosaic ????????????? mapping ?????????? unmask AI ????????? mapping envelope ??????
+
+```bash
+python -m codemosaic verify-mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature
+```
+
+??????????? mapping ??? mapping????? mapping??????? envelope ???????????????????
 
 ### 元数据与可审计性
 

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import shutil
@@ -36,6 +36,8 @@ def mask_workspace(
     mapping_passphrase: str | None = None,
     mapping_encryption_provider: str | None = None,
     mapping_key_metadata: dict[str, object] | None = None,
+    mapping_signing_key: str | None = None,
+    mapping_signature_metadata: dict[str, object] | None = None,
 ) -> RunReport:
     effective_mapping = resolve_workspace_mapping_policy(
         source_root,
@@ -108,11 +110,15 @@ def mask_workspace(
     }
     if mapping_key_metadata:
         metadata['key_management'] = dict(mapping_key_metadata)
+    if mapping_signature_metadata:
+        metadata['signature_management'] = dict(mapping_signature_metadata)
     vault.save(
         mapping_path,
         metadata=metadata,
         passphrase=mapping_passphrase,
         encryption_provider=selected_provider,
+        signing_key=mapping_signing_key,
+        signing_metadata=mapping_signature_metadata,
     )
     report = RunReport(
         run_id=run_name,

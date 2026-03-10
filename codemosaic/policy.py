@@ -56,6 +56,7 @@ class MappingPolicy:
     require_encryption: bool = False
     encryption_provider: str | None = None
     key_management: MappingKeyManagementPolicy = field(default_factory=MappingKeyManagementPolicy)
+    signature_management: MappingKeyManagementPolicy = field(default_factory=MappingKeyManagementPolicy)
     rules: list[MappingRulePolicy] = field(default_factory=list)
 
 
@@ -137,36 +138,8 @@ class MaskPolicy:
                     if isinstance(mapping, dict) and mapping.get('encryption_provider') is not None
                     else None
                 ),
-                key_management=MappingKeyManagementPolicy(
-                    source=(
-                        str(mapping.get('key_management', {}).get('source'))
-                        if isinstance(mapping, dict)
-                        and isinstance(mapping.get('key_management'), dict)
-                        and mapping.get('key_management', {}).get('source') is not None
-                        else None
-                    ),
-                    reference=(
-                        str(mapping.get('key_management', {}).get('reference'))
-                        if isinstance(mapping, dict)
-                        and isinstance(mapping.get('key_management'), dict)
-                        and mapping.get('key_management', {}).get('reference') is not None
-                        else None
-                    ),
-                    key_id=(
-                        str(mapping.get('key_management', {}).get('key_id'))
-                        if isinstance(mapping, dict)
-                        and isinstance(mapping.get('key_management'), dict)
-                        and mapping.get('key_management', {}).get('key_id') is not None
-                        else None
-                    ),
-                    registry_file=(
-                        str(mapping.get('key_management', {}).get('registry_file'))
-                        if isinstance(mapping, dict)
-                        and isinstance(mapping.get('key_management'), dict)
-                        and mapping.get('key_management', {}).get('registry_file') is not None
-                        else None
-                    ),
-                ),
+                key_management=_load_mapping_key_management(mapping, 'key_management'),
+                signature_management=_load_mapping_key_management(mapping, 'signature_management'),
                 rules=_load_mapping_rules(mapping.get('rules', {})) if isinstance(mapping, dict) else [],
             ),
             leakage=LeakagePolicy(
@@ -246,6 +219,19 @@ def load_policy(path: Path | None) -> MaskPolicy:
         policy = MaskPolicy.from_dict(parsed)
     policy.source_path = str(path.resolve())
     return policy
+
+
+
+def _load_mapping_key_management(mapping: object, field_name: str) -> MappingKeyManagementPolicy:
+    config = mapping.get(field_name, {}) if isinstance(mapping, dict) else {}
+    if not isinstance(config, dict):
+        return MappingKeyManagementPolicy()
+    return MappingKeyManagementPolicy(
+        source=str(config.get('source')) if config.get('source') is not None else None,
+        reference=str(config.get('reference')) if config.get('reference') is not None else None,
+        key_id=str(config.get('key_id')) if config.get('key_id') is not None else None,
+        registry_file=str(config.get('registry_file')) if config.get('registry_file') is not None else None,
+    )
 
 
 

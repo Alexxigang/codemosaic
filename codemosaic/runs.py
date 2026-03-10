@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +47,8 @@ def rekey_run_mappings(
     encryption_provider: str | None = None,
     limit: int | None = None,
     metadata_overrides: dict[str, object] | None = None,
+    signing_key: str | None = None,
+    signing_metadata: dict[str, object] | None = None,
 ) -> list[Path]:
     mappings = list_run_mappings(workspace_root)
     if limit is not None:
@@ -62,6 +64,8 @@ def rekey_run_mappings(
                 new_passphrase=new_passphrase,
                 encryption_provider=encryption_provider if new_passphrase else None,
                 metadata_overrides=metadata_overrides,
+                signing_key=signing_key,
+                signing_metadata=signing_metadata,
             )
         )
     return outputs
