@@ -139,7 +139,7 @@ def build_parser() -> argparse.ArgumentParser:
     register_key_parser = subparsers.add_parser('register-key-source', help='Register a reusable key source for a workspace')
     register_key_parser.add_argument('workspace', type=Path)
     register_key_parser.add_argument('--key-id', type=str, required=True)
-    register_key_parser.add_argument('--source', type=str, choices=['env', 'file'], required=True)
+    register_key_parser.add_argument('--source', type=str, choices=['env', 'file', 'command'], required=True)
     register_key_parser.add_argument('--reference', type=str, required=True)
     register_key_parser.add_argument('--provider', type=str, default='managed-v1')
     register_key_parser.add_argument('--status', type=str, default='active')

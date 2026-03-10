@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -102,6 +103,49 @@ class KeyManagementTests(unittest.TestCase):
             self.assertEqual(metadata['reference'], 'CODEMOSAIC_MAPPING_KEY')
             self.assertEqual(metadata['key_id'], 'team-dev-v1')
             self.assertEqual(metadata['origin'], 'policy')
+
+
+    def test_cli_mask_uses_policy_managed_key_from_command_source(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / 'repo'
+            output_root = Path(temp_dir) / 'repo.masked'
+            (workspace / 'src').mkdir(parents=True)
+            (workspace / 'src' / 'app.py').write_text('revenue_model = 1\n', encoding='utf-8')
+            key_value = generate_mapping_key()
+            command = f'"{sys.executable}" -c "print(\'{key_value}\')"'
+            policy_path = workspace / 'policy.json'
+            policy_path.write_text(
+                json.dumps(
+                    {
+                        'mapping': {
+                            'require_encryption': True,
+                            'encryption_provider': 'managed-v1',
+                            'key_management': {
+                                'source': 'command',
+                                'reference': command,
+                                'key_id': 'team-dev-cmd',
+                            },
+                        }
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding='utf-8',
+            )
+            subprocess.run(
+                ['python', '-m', 'codemosaic', 'mask', str(workspace), '--policy', str(policy_path), '--output', str(output_root)],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            mapping_files = list((workspace / '.codemosaic' / 'runs').rglob('mapping.enc.json'))
+            self.assertEqual(len(mapping_files), 1)
+            payload = load_mapping_payload(mapping_files[0], passphrase=key_value)
+            metadata = payload['metadata']['key_management']
+            self.assertEqual(metadata['source'], 'command')
+            self.assertEqual(metadata['key_id'], 'team-dev-cmd')
 
     def test_generate_key_command_writes_file(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

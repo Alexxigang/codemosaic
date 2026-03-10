@@ -69,6 +69,19 @@ key_management:
   key_id: team-dev-2026q1
 ```
 
+### `command`
+
+Use a local secret-retrieval command. The command must be non-interactive and print only the key material to stdout.
+
+```yaml
+key_management:
+  source: command
+  reference: op read "op://Engineering/CodeMosaic/mapping-key"
+  key_id: team-dev-2026q1
+```
+
+This is useful when your team already uses local secret CLIs such as 1Password CLI, Vault CLI, AWS CLI, or gcloud.
+
 ## Workspace key registry
 
 CodeMosaic supports a local workspace registry at `.codemosaic/key-registry.json`.

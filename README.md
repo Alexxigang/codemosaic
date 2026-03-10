@@ -59,7 +59,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Local mapping vault under `.codemosaic/runs/...`
 - Optional passphrase-based mapping protection
 - Managed-key workflow with `managed-v1`
-- Policy-backed key source references from env vars or files
+- Policy-backed key source references from env vars, files, or local secret commands
 - Key lifecycle states: `active`, `decrypt-only`, and `retired`
 - Tamper-evident mapping signatures for audit-ready integrity checks
 - Workspace run auditing for encryption and signature governance
@@ -193,6 +193,17 @@ Supported key sources today:
 
 - `env`
 - `file`
+- `command`
+
+Example command-backed secret source:
+
+```yaml
+mapping:
+  key_management:
+    source: command
+    reference: op read "op://Engineering/CodeMosaic/mapping-key"
+    key_id: team-prod-2026q1
+```
 
 ### Workspace key registry
 

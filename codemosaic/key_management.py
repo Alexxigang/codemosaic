@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import secrets
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 from codemosaic.crypto import MANAGED_PROVIDER_ID
 
 
-SUPPORTED_KEY_SOURCES = {'env', 'file'}
+SUPPORTED_KEY_SOURCES = {'env', 'file', 'command'}
 SUPPORTED_KEY_STATUSES = {'active', 'decrypt-only', 'retired'}
 
 
@@ -352,6 +353,8 @@ def _read_source(source: str | None, reference: str | None, base_dir: Path | Non
         if not value:
             raise ValueError(f"environment variable '{reference}' is missing or empty")
         return value
+    if source == 'command':
+        return _read_command_source(reference, base_dir=base_dir)
     key_file = Path(reference)
     if not key_file.is_absolute() and base_dir is not None:
         key_file = (base_dir / key_file).resolve()
@@ -360,6 +363,26 @@ def _read_source(source: str | None, reference: str | None, base_dir: Path | Non
     value = key_file.read_text(encoding='utf-8').strip()
     if not value:
         raise ValueError(f'key file is empty: {key_file}')
+    return value
+
+
+
+def _read_command_source(command: str, *, base_dir: Path | None = None) -> str:
+    result = subprocess.run(
+        command,
+        shell=True,
+        cwd=str(base_dir) if base_dir is not None else None,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip() or 'command returned non-zero exit status'
+        raise ValueError(f'key command failed: {message}')
+    value = result.stdout.strip()
+    if not value:
+        raise ValueError('key command returned empty output')
     return value
 
 

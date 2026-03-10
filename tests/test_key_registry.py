@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -99,6 +100,44 @@ class KeyRegistryTests(unittest.TestCase):
             self.assertIsNotNone(entry)
             assert entry is not None
             self.assertEqual(entry.status, 'decrypt-only')
+
+
+    def test_mask_resolves_command_key_via_registry(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / 'repo'
+            output_root = Path(temp_dir) / 'repo.masked'
+            (workspace / 'src').mkdir(parents=True)
+            (workspace / 'src' / 'app.py').write_text('revenue_model = 1\n', encoding='utf-8')
+            key_value = generate_mapping_key()
+            command = f'"{sys.executable}" -c "print(\'{key_value}\')"'
+            register_key_source(
+                default_key_registry_path(workspace),
+                key_id='team-dev-cmd',
+                source='command',
+                reference=command,
+            )
+            policy_path = workspace / 'policy.yaml'
+            policy_path.write_text(
+                'mapping:\n'
+                '  require_encryption: true\n'
+                '  encryption_provider: managed-v1\n'
+                '  key_management:\n'
+                '    key_id: team-dev-cmd\n',
+                encoding='utf-8',
+            )
+            subprocess.run(
+                ['python', '-m', 'codemosaic', 'mask', str(workspace), '--policy', str(policy_path), '--output', str(output_root)],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            mapping_files = list((workspace / '.codemosaic' / 'runs').rglob('mapping.enc.json'))
+            self.assertEqual(len(mapping_files), 1)
+            payload = load_mapping_payload(mapping_files[0], passphrase=key_value)
+            self.assertEqual(payload['metadata']['key_management']['source'], 'command')
+            self.assertEqual(payload['metadata']['key_management']['key_id'], 'team-dev-cmd')
 
     def test_decrypt_only_registry_key_cannot_encrypt_but_can_decrypt(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
