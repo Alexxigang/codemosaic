@@ -35,10 +35,18 @@ class SecureOnboardingDemoTests(unittest.TestCase):
             self.assertTrue(Path(payload['mapping_file']).exists())
             self.assertTrue(str(payload['mapping_file']).endswith('mapping.enc.json'))
             self.assertTrue(Path(payload['leakage_report_file']).exists())
+            self.assertTrue(Path(payload['run_audit_file']).exists())
+            self.assertFalse(payload['before_state']['policy_ready'])
+            self.assertTrue(payload['after_state']['policy_ready'])
+            self.assertGreaterEqual(payload['after_state']['managed_key_file_count'], 2)
             self.assertGreaterEqual(len(payload['registry_entries']), 2)
+            self.assertEqual(payload['run_audit_summary']['verified_count'], 1)
+            self.assertIn('verified: yes', payload['verify_mapping_output'])
             actions = [item.get('action') for item in payload['audit_events']]
             self.assertIn('setup-workspace', actions)
             self.assertIn('mask', actions)
+            self.assertIn('verify-mapping', actions)
+            self.assertIn('audit-runs', actions)
 
 
 if __name__ == '__main__':

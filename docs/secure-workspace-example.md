@@ -60,6 +60,9 @@ This writes a worked example under `dist/secure-onboarding-demo` including:
 - a copied demo repo with generated onboarding files
 - a masked workspace with encrypted mapping output
 - a leakage report for the masked workspace
+- a run-audit report and mapping verification evidence
+
+The Markdown summary now includes a before/after table so you can immediately show the effect of onboarding to teammates or stakeholders.
 
 ## Example interpretation
 
