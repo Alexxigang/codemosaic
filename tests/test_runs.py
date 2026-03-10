@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from codemosaic.audit import read_audit_events
 from codemosaic.mapping import MappingVault, load_mapping_payload
 from codemosaic.runs import audit_run_mappings, list_run_mappings, rekey_run_mappings
 
@@ -33,6 +34,49 @@ class RunMappingsTests(unittest.TestCase):
 
             self.assertEqual([item.run_id for item in items], ['newer', 'older'])
 
+
+
+    def test_mask_command_writes_audit_event(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / 'repo'
+            output_root = Path(temp_dir) / 'repo.masked'
+            (workspace / 'src').mkdir(parents=True)
+            (workspace / 'src' / 'app.py').write_text('risk_engine = 1\n', encoding='utf-8')
+            subprocess.run(
+                ['python', '-m', 'codemosaic', 'mask', str(workspace), '--output', str(output_root)],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            events = read_audit_events(workspace)
+            self.assertGreaterEqual(len(events), 1)
+            self.assertEqual(events[0]['action'], 'mask')
+            self.assertIn('mapping_file', events[0]['details'])
+
+    def test_cli_audit_events_reads_recent_events(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            audit_log = workspace / '.codemosaic' / 'audit-log.jsonl'
+            audit_log.parent.mkdir(parents=True, exist_ok=True)
+            audit_log.write_text(
+                '{"event_time":"2026-03-10T10:00:00","action":"mask","workspace_root":"repo","details":{"run_id":"run-1"}}\n'
+                '{"event_time":"2026-03-10T10:05:00","action":"verify-mapping","workspace_root":"repo","details":{"verified":true}}\n',
+                encoding='utf-8',
+            )
+            output_path = Path(temp_dir) / 'events.json'
+            result = subprocess.run(
+                ['python', '-m', 'codemosaic', 'audit-events', str(workspace), '--limit', '1', '--output', str(output_path)],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertIn('audit events: 1', result.stdout)
+            payload = json.loads(output_path.read_text(encoding='utf-8'))
+            self.assertEqual(payload['events'][0]['action'], 'verify-mapping')
 
     def test_audit_run_mappings_reports_signature_status(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

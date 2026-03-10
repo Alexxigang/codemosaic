@@ -63,3 +63,11 @@ You can also audit stored masking runs before accepting AI-generated patches:
 ```bash
 python -m codemosaic audit-runs ./repo --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature --output run-audit.json
 ```
+
+## Local operation audit log
+
+For workstation-side governance, you can export the local audit trail:
+
+```bash
+python -m codemosaic audit-events ./repo --limit 50 --output audit-events.json
+```

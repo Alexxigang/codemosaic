@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from codemosaic.audit import append_audit_event, read_audit_events
 from codemosaic.bundles import build_markdown_bundle
 from codemosaic.crypto import describe_mapping_crypto_providers
 from codemosaic.key_management import (
@@ -136,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
     generate_key_parser.add_argument('--length', type=int, default=32)
     generate_key_parser.add_argument('--force', action='store_true')
 
+    audit_events_parser = subparsers.add_parser('audit-events', help='Read local audit events for workspace operations')
+    audit_events_parser.add_argument('workspace', type=Path)
+    audit_events_parser.add_argument('--limit', type=int, default=20)
+    audit_events_parser.add_argument('--output', type=Path, default=None)
+
     register_key_parser = subparsers.add_parser('register-key-source', help='Register a reusable key source for a workspace')
     register_key_parser.add_argument('workspace', type=Path)
     register_key_parser.add_argument('--key-id', type=str, required=True)
@@ -215,6 +221,16 @@ def main(argv: list[str] | None = None) -> int:
                 mapping_signing_key=signature_material.secret,
                 mapping_signature_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
+            append_audit_event(
+                source_root,
+                'mask',
+                run_id=report.run_id,
+                output_root=report.output_root,
+                mapping_file=report.mapping_file,
+                encrypted=bool(key_material.secret),
+                signed=bool(signature_material.secret),
+                policy_path=str(args.policy.resolve()) if args.policy else None,
+            )
             print(f'masked workspace: {report.output_root}')
             print(f'mapping file: {report.mapping_file}')
             print(f"report file: {source_root / '.codemosaic' / 'runs' / report.run_id / 'report.json'}")
@@ -272,6 +288,17 @@ def main(argv: list[str] | None = None) -> int:
             )
             summary_file = output_root / 'segmented-mask-summary.json'
             summary_file.write_text(json.dumps(result.to_dict(), indent=2, ensure_ascii=False), encoding='utf-8')
+            append_audit_event(
+                source_root,
+                'mask-segmented',
+                segment_count=len(result.segments),
+                summary_file=summary_file,
+                output_root=result.output_root,
+                encrypted=bool(key_material.secret),
+                signed=bool(signature_material.secret),
+                policy_path=str(args.policy.resolve()) if args.policy else None,
+                run_ids=[report.run_id for report in result.reports],
+            )
             print(f'segmented output root: {result.output_root}')
             print(f'segment count: {len(result.segments)}')
             print(f'summary file: {summary_file}')
@@ -381,6 +408,16 @@ def main(argv: list[str] | None = None) -> int:
                 signing_key=signature_material.secret,
                 require_signature=require_signature,
             )
+            if workspace_root is not None:
+                append_audit_event(
+                    workspace_root,
+                    'unmask-patch',
+                    mapping_file=mapping_file,
+                    patch_file=args.patch.resolve(),
+                    output_file=output_file,
+                    require_signature=require_signature,
+                    signed=bool(signature_material.secret),
+                )
             print(f'translated patch: {output_file}')
             return 0
 
@@ -407,6 +444,18 @@ def main(argv: list[str] | None = None) -> int:
                 signing_key=signature_material.secret,
                 require_signature=args.require_signature,
             )
+            if workspace_root is not None:
+                append_audit_event(
+                    workspace_root,
+                    'verify-mapping',
+                    mapping_file=mapping_file,
+                    require_signature=args.require_signature,
+                    signed=status.present,
+                    verified=status.verified,
+                    scope=status.scope,
+                    algorithm=status.algorithm,
+                    signature_key_id=status.key_id,
+                )
             print(f'mapping file: {mapping_file}')
             print(f"signed: {'yes' if status.present else 'no'}")
             if status.present:
@@ -462,6 +511,16 @@ def main(argv: list[str] | None = None) -> int:
                 signing_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
             mode = 'encrypted' if new_key.secret else 'plaintext'
+            if workspace_root is not None:
+                append_audit_event(
+                    workspace_root,
+                    'rekey-mapping',
+                    mapping_file=mapping_file,
+                    output_file=output_file,
+                    output_mode=mode,
+                    encrypted=bool(new_key.secret),
+                    signed=bool(signature_material.secret),
+                )
             print(f'rewrapped mapping: {output_file}')
             print(f'output mode: {mode}')
             return 0
@@ -500,6 +559,15 @@ def main(argv: list[str] | None = None) -> int:
                     f"{record.verification_status}	{record.encryption_provider or '-'}	"
                     f"{record.mapping_key_id or '-'}	{record.signature_key_id or '-'}"
                 )
+            append_audit_event(
+                workspace_root,
+                'audit-runs',
+                audited_runs=summary['run_count'],
+                encrypted_runs=summary['encrypted_count'],
+                signed_runs=summary['signed_count'],
+                verified_runs=summary['verified_count'],
+                require_signature=args.require_signature,
+            )
             if args.output:
                 output_path = args.output.resolve()
                 output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -541,9 +609,19 @@ def main(argv: list[str] | None = None) -> int:
                 signing_metadata=signature_material.to_metadata() if signature_material.secret else None,
             )
             if not output_files:
+                append_audit_event(workspace_root, 'rekey-runs', rekeyed_runs=0)
                 print('rekeyed runs: 0')
                 return 0
             mode = 'encrypted' if new_key.secret else 'plaintext'
+            append_audit_event(
+                workspace_root,
+                'rekey-runs',
+                rekeyed_runs=len(output_files),
+                output_mode=mode,
+                outputs=output_files,
+                encrypted=bool(new_key.secret),
+                signed=bool(signature_material.secret),
+            )
             print(f'rekeyed runs: {len(output_files)}')
             print(f'output mode: {mode}')
             for path in output_files:
@@ -563,6 +641,20 @@ def main(argv: list[str] | None = None) -> int:
                 print(key_value)
             return 0
 
+
+        if args.command == 'audit-events':
+            workspace_root = args.workspace.resolve()
+            events = read_audit_events(workspace_root, limit=args.limit)
+            print(f'audit events: {len(events)}')
+            for event in events:
+                print(f"{event['event_time']}	{event['action']}")
+            if args.output:
+                output_path = args.output.resolve()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(json.dumps({'events': events}, indent=2, ensure_ascii=False), encoding='utf-8')
+                print(f'audit file: {output_path}')
+            return 0
+
         if args.command == 'register-key-source':
             workspace_root = args.workspace.resolve()
             registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
@@ -576,6 +668,14 @@ def main(argv: list[str] | None = None) -> int:
                 provider=args.provider,
                 status=args.status,
                 notes=args.notes,
+            )
+            append_audit_event(
+                workspace_root,
+                'register-key-source',
+                key_id=entry.key_id,
+                source=entry.source,
+                reference=entry.reference,
+                status=entry.status,
             )
             print(f'key registry: {registry_path}')
             print(f'registered key: {entry.key_id}')
@@ -601,6 +701,12 @@ def main(argv: list[str] | None = None) -> int:
             if registry_path is None:
                 registry_path = default_key_registry_path(workspace_root)
             entry = update_key_source_status(registry_path, key_id=args.key_id, status=args.status)
+            append_audit_event(
+                workspace_root,
+                'set-key-source-status',
+                key_id=entry.key_id,
+                status=entry.status,
+            )
             print(f'key registry: {registry_path}')
             print(f'updated key: {entry.key_id}')
             print(f'status: {entry.status}')

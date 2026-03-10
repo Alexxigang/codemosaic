@@ -48,6 +48,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - `unmask-patch` to translate masked diffs back to original symbols
 - `verify-mapping` to validate tamper-evident mapping signatures
 - `audit-runs` to audit run history for encryption and signature posture
+- `audit-events` to inspect local operation audit logs
 - `apply` to apply translated patches with `git apply`
 - `rekey-mapping` and `rekey-runs` for mapping re-protection
 - `generate-key` to create high-entropy managed mapping keys
@@ -63,6 +64,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Key lifecycle states: `active`, `decrypt-only`, and `retired`
 - Tamper-evident mapping signatures for audit-ready integrity checks
 - Workspace run auditing for encryption and signature governance
+- Local operation audit log for mask/unmask/rekey/verify flows
 - Key IDs recorded in mapping metadata and encrypted envelope headers
 - Leakage budget thresholds for total and per-file risk
 - Segment-aware masking rules for tighter sharing boundaries
@@ -272,6 +274,14 @@ python -m codemosaic audit-runs ./your-repo --signing-key-env CODEMOSAIC_AUDIT_K
 ```
 
 This produces a governance-friendly summary of which runs are encrypted, signed, and fully verified.
+
+### Operation audit log
+
+CodeMosaic now also writes a local audit log for key operations such as `mask`, `unmask-patch`, `verify-mapping`, `rekey-mapping`, `rekey-runs`, and key-registry changes.
+
+```bash
+python -m codemosaic audit-events ./your-repo --limit 20 --output audit-events.json
+```
 
 ### Unmask signature gate
 
