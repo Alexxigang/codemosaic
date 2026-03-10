@@ -47,6 +47,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - `bundle` for Markdown context export to external AI tools
 - `unmask-patch` to translate masked diffs back to original symbols
 - `verify-mapping` to validate tamper-evident mapping signatures
+- `audit-runs` to audit run history for encryption and signature posture
 - `apply` to apply translated patches with `git apply`
 - `rekey-mapping` and `rekey-runs` for mapping re-protection
 - `generate-key` to create high-entropy managed mapping keys
@@ -61,6 +62,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - Policy-backed key source references from env vars or files
 - Key lifecycle states: `active`, `decrypt-only`, and `retired`
 - Tamper-evident mapping signatures for audit-ready integrity checks
+- Workspace run auditing for encryption and signature governance
 - Key IDs recorded in mapping metadata and encrypted envelope headers
 - Leakage budget thresholds for total and per-file risk
 - Segment-aware masking rules for tighter sharing boundaries
@@ -249,6 +251,16 @@ python -m codemosaic verify-mapping ./.codemosaic/runs/<run-id>/mapping.enc.json
 ```
 
 This works for both plaintext and encrypted mappings. For encrypted mappings, the signature covers the envelope metadata and ciphertext without exposing decrypted content.
+
+### Run audit
+
+Teams can audit recent masking runs without decrypting every mapping file:
+
+```bash
+python -m codemosaic audit-runs ./your-repo --signing-key-env CODEMOSAIC_AUDIT_KEY --output run-audit.json
+```
+
+This produces a governance-friendly summary of which runs are encrypted, signed, and fully verified.
 
 ### Metadata and auditability
 

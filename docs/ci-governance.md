@@ -55,3 +55,11 @@ If the leakage budget is exceeded, the command exits with code `3`.
 2. Review leakage reports for one or two weeks
 3. Tighten rules on the paths that repeatedly show high semantic leakage
 4. Move critical repos to `strict-ai-gateway.yaml`
+
+## Run audit
+
+You can also audit stored masking runs before accepting AI-generated patches:
+
+```bash
+python -m codemosaic audit-runs ./repo --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature --output run-audit.json
+```

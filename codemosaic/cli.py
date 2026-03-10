@@ -19,7 +19,7 @@ from codemosaic.leakage import evaluate_leakage_budget, has_leakage_budget, leak
 from codemosaic.mapping import rewrap_mapping_file, verify_mapping_file
 from codemosaic.patching import apply_patch_file, translate_patch_file
 from codemosaic.policy import MaskPolicy, load_policy
-from codemosaic.runs import rekey_run_mappings
+from codemosaic.runs import audit_run_mappings, rekey_run_mappings
 from codemosaic.scanning import scan_workspace
 from codemosaic.segmentation import mask_segmented_workspace, plan_mask_segments, write_segment_plan
 from codemosaic.workspace import mask_workspace, resolve_workspace_mapping_policy
@@ -118,6 +118,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_key_material_arguments(rekey_runs_parser)
     _add_new_key_material_arguments(rekey_runs_parser)
     _add_signature_material_arguments(rekey_runs_parser)
+
+    audit_runs_parser = subparsers.add_parser(
+        'audit-runs',
+        help='Audit workspace run mappings for encryption and signature posture',
+    )
+    audit_runs_parser.add_argument('workspace', type=Path)
+    audit_runs_parser.add_argument('--limit', type=int, default=None)
+    audit_runs_parser.add_argument('--output', type=Path, default=None)
+    audit_runs_parser.add_argument('--require-signature', action='store_true')
+    _add_signature_material_arguments(audit_runs_parser)
 
     generate_key_parser = subparsers.add_parser('generate-key', help='Generate high-entropy mapping key material')
     generate_key_parser.add_argument('--output', type=Path, default=None)
@@ -446,6 +456,50 @@ def main(argv: list[str] | None = None) -> int:
             print(f'output mode: {mode}')
             return 0
 
+
+        if args.command == 'audit-runs':
+            workspace_root = args.workspace.resolve()
+            signature_registry_path = _resolve_registry_path(
+                args,
+                workspace_root=workspace_root,
+                policy=None,
+                registry_attr='signing_key_registry',
+                policy_config_attr='signature_management',
+            )
+            signature_material = _resolve_signature_material(
+                args,
+                None,
+                registry_path=signature_registry_path,
+                usage_mode='decrypt',
+                required=False,
+            )
+            records = audit_run_mappings(
+                workspace_root,
+                signing_key=signature_material.secret,
+                require_signature=args.require_signature,
+                limit=args.limit,
+            )
+            summary = _build_run_audit_summary(records)
+            print(f"audited runs: {summary['run_count']}")
+            print(f"encrypted runs: {summary['encrypted_count']}")
+            print(f"signed runs: {summary['signed_count']}")
+            print(f"verified runs: {summary['verified_count']}")
+            for record in records:
+                print(
+                    f"{record.run_id}	{('enc' if record.encrypted else 'plain')}	"
+                    f"{record.verification_status}	{record.encryption_provider or '-'}	"
+                    f"{record.mapping_key_id or '-'}	{record.signature_key_id or '-'}"
+                )
+            if args.output:
+                output_path = args.output.resolve()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(
+                    json.dumps({'summary': summary, 'runs': [record.to_dict() for record in records]}, indent=2, ensure_ascii=False),
+                    encoding='utf-8',
+                )
+                print(f'audit file: {output_path}')
+            return 0
+
         if args.command == 'rekey-runs':
             workspace_root = args.workspace.resolve()
             registry_path = _resolve_registry_path(args, workspace_root=workspace_root, policy=None)
@@ -760,6 +814,17 @@ def _infer_workspace_root_from_mapping(mapping_file: Path) -> Path | None:
     if candidate.parent.parent.name == 'runs' and candidate.parent.parent.parent.name == '.codemosaic':
         return candidate.parent.parent.parent.parent
     return None
+
+
+
+
+def _build_run_audit_summary(records) -> dict[str, int]:
+    return {
+        'run_count': len(records),
+        'encrypted_count': sum(1 for record in records if record.encrypted),
+        'signed_count': sum(1 for record in records if record.signed),
+        'verified_count': sum(1 for record in records if record.verification_status == 'verified'),
+    }
 
 
 
