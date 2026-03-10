@@ -33,6 +33,17 @@ class SiteAssetsTests(unittest.TestCase):
         self.assertIn('twitter:card', content)
         self.assertIn('assets/social-card.svg', content)
 
+    def test_static_site_exposes_bilingual_readme_links_and_no_mojibake_markers(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        content = (root / 'docs' / 'site' / 'index.html').read_text(encoding='utf-8')
+        self.assertIn('README.en.md', content)
+        self.assertIn('README.zh-CN.md', content)
+        self.assertIn('CodeMosaic - AI Code Privacy Gateway', content)
+        self.assertNotIn('กช', content)
+        self.assertNotIn('กค', content)
+        self.assertNotIn('กฐ', content)
+        self.assertNotIn('กฑ', content)
+
 
 if __name__ == '__main__':
     unittest.main()

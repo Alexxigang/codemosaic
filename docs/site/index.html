@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CodeMosaic — AI Code Privacy Gateway</title>
+  <title>CodeMosaic - AI Code Privacy Gateway</title>
   <meta name="description" content="CodeMosaic helps teams use external AI coding tools without sending raw proprietary code outside the workstation boundary." />
   <meta property="og:title" content="CodeMosaic - AI Code Privacy Gateway" />
   <meta property="og:description" content="Mask code locally, measure semantic leakage, and block unsafe exports before sharing with external AI tools." />
@@ -25,8 +25,11 @@
         <a href="#solution">Solution</a>
         <a href="#differentiators">Why It Stands Out</a>
         <a href="#demo">Demo</a>
+        <a href="https://github.com/Alexxigang/codemosaic/blob/main/README.en.md">README EN</a>
+        <a href="https://github.com/Alexxigang/codemosaic/blob/main/README.zh-CN.md">README ZH-CN</a>
       </div>
     </nav>
+
     <div class="hero-content">
       <div class="hero-copy">
         <p class="eyebrow">AI Code Privacy Gateway</p>
@@ -38,14 +41,15 @@
         <div class="hero-actions">
           <a class="button primary" href="https://github.com/Alexxigang/codemosaic">GitHub Repository</a>
           <a class="button secondary" href="https://github.com/Alexxigang/codemosaic/releases">Releases</a>
-          <a class="button secondary" href="https://github.com/Alexxigang/codemosaic/blob/main/README.md">Read the README</a>
+          <a class="button secondary" href="https://github.com/Alexxigang/codemosaic/blob/main/README.en.md">Read README (EN)</a>
+          <a class="button secondary" href="https://github.com/Alexxigang/codemosaic/blob/main/README.zh-CN.md">Read README (ZH-CN)</a>
           <a class="button secondary" href="../landing-page.md">Open product brief</a>
         </div>
         <ul class="hero-points">
           <li>Local-first masking workflow</li>
           <li>Semantic leakage analysis after masking</li>
           <li>Leakage Budget Gate before export</li>
-          <li>CLI + VS Code + demo assets in one story</li>
+          <li>Managed-key workflow with rotation-friendly metadata</li>
         </ul>
       </div>
       <div class="hero-visual card">
@@ -64,7 +68,8 @@
           proprietary business logic, or secret-bearing source files into third-party systems.
         </p>
         <p>
-          The real question is not just <em>“did we hide the secrets?”</em>. It is also <em>“after masking, is this code still safe enough to send?”</em>
+          The real question is not just <em>"did we hide the secrets?"</em>. It is also
+          <em>"after masking, is this code still safe enough to send?"</em>.
         </p>
       </div>
       <div class="card checklist">
@@ -100,101 +105,56 @@
         </div>
         <div class="step card">
           <span class="step-index">4</span>
-          <h3>Close the loop</h3>
-          <p>Translate masked AI patches back to original code and apply them safely.</p>
+          <h3>Recover</h3>
+          <p>Translate masked patches back onto the original repository when external AI returns a fix.</p>
         </div>
       </div>
     </section>
 
     <section id="differentiators" class="section alt">
       <p class="section-label">Why It Stands Out</p>
-      <h2>Not just redaction. Export governance.</h2>
+      <h2>This is not just secret redaction.</h2>
       <div class="grid three">
-        <article class="card feature">
-          <h3>Reversible closed loop</h3>
-          <p><code>mask -&gt; AI -&gt; patch -&gt; unmask/apply</code> keeps the workflow practical, not theoretical.</p>
-        </article>
-        <article class="card feature">
+        <div class="feature card">
+          <h3>Reversible workflow</h3>
+          <p>CodeMosaic supports a full path from masking to patch translation instead of stopping at one-way export.</p>
+        </div>
+        <div class="feature card">
           <h3>Semantic leakage analysis</h3>
-          <p>Measures what business meaning still leaks after masking, not only what looked secret before masking.</p>
-        </article>
-        <article class="card feature">
-          <h3>Leakage Budget Gate</h3>
-          <p>Blocks unsafe exports locally before masked code leaves the workstation boundary.</p>
-        </article>
-        <article class="card feature">
-          <h3>Policy-driven segmentation</h3>
-          <p>Apply different rules to different paths and split masking runs into governed segments.</p>
-        </article>
-        <article class="card feature">
-          <h3>VS Code safe export UX</h3>
-          <p>Developers can trigger safe export directly in the editor and see gate outcomes in the Runs view.</p>
-        </article>
-        <article class="card feature">
-          <h3>Demo and release ready</h3>
-          <p>The repository already includes a demo repo, release assets, and launch-ready visuals.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section visual-strip">
-      <div class="visual card">
-        <img src="./assets/workflow-overview.svg" alt="CodeMosaic workflow overview" />
-      </div>
-      <div class="visual card">
-        <img src="./assets/vscode-runs-view.svg" alt="CodeMosaic VS Code runs view" />
-      </div>
-    </section>
-
-    <section class="section alt two-col">
-      <div>
-        <p class="section-label">Get Started</p>
-        <h2>Pick the path that fits your audience.</h2>
-        <ul class="clean-list">
-          <li><strong>Developers:</strong> clone the repo and run the CLI locally</li>
-          <li><strong>Evaluators:</strong> install the VSIX from Releases and run the demo workflow</li>
-          <li><strong>Security reviewers:</strong> open `docs/leakage-gate.md`, `docs/landing-page.md`, and `RELEASE_CHECKLIST.md`</li>
-        </ul>
-      </div>
-      <div class="card code-card">
-        <h3>Install path</h3>
-        <pre><code>python scripts/package_vscode_extension.py --overwrite
-# or download a VSIX from GitHub Releases
-
-python scripts/generate_release_assets.py --encrypt-mapping --clean</code></pre>
-        <p>Use the generated VSIX for editor demos and the release assets for product-facing walkthroughs.</p>
+          <p>It estimates how much business meaning still survives after masking and ranks the riskiest files.</p>
+        </div>
+        <div class="feature card">
+          <h3>Managed-key policy model</h3>
+          <p>Teams can use policy-linked key sources, record key IDs, and rotate mapping protection more like a real product.</p>
+        </div>
       </div>
     </section>
 
     <section id="demo" class="section two-col">
       <div>
-        <p class="section-label">3-Minute Demo</p>
-        <h2>Show both outcomes: normal bundle and blocked safe export.</h2>
+        <p class="section-label">Demo Flow</p>
+        <h2>Show both success and governance.</h2>
         <ol class="demo-flow">
-          <li>Run <code>Scan Workspace</code></li>
-          <li>Run <code>Mask Workspace</code></li>
-          <li>Open <code>Analyze Semantic Leakage</code></li>
-          <li>Generate a normal AI bundle</li>
-          <li>Run <code>Safe Export Bundle</code></li>
-          <li>Show the gate decision and top-risk file</li>
-          <li>Open the Runs view and point at <code>Leakage gate: BLOCKED</code></li>
+          <li>Run `scan` on a repo with internal URLs, identifiers, and comments.</li>
+          <li>Run `mask` and inspect the local mapping vault.</li>
+          <li>Generate a leakage report and show the highest-risk file.</li>
+          <li>Build a normal bundle and then show a blocked safe export path.</li>
+          <li>Translate a masked patch back into the original repo.</li>
         </ol>
       </div>
       <div class="card code-card">
-        <h3>Safe export command</h3>
-        <pre><code>python -m codemosaic bundle ./your-repo.masked \
-  --policy policy.sample.yaml \
-  --output ai-bundle.md \
-  --leakage-report leakage-report.json \
-  --fail-on-threshold</code></pre>
-        <p>If the leakage budget is exceeded, CodeMosaic exits with code <code>3</code> and does not generate the bundle.</p>
+        <h3>Starter commands</h3>
+        <pre><code>python -m codemosaic generate-key --output ./.codemosaic/keys/team-dev.key
+python -m codemosaic mask ./repo --policy policy.sample.yaml
+python -m codemosaic leakage-report ./repo.masked --policy policy.sample.yaml --output leakage-report.json
+python -m codemosaic bundle ./repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold</code></pre>
       </div>
     </section>
 
-        <section class="section two-col">
+    <section class="section alt two-col">
       <div>
-        <p class="section-label">Policy Presets</p>
-        <h2>Start with a preset instead of designing policy from scratch.</h2>
+        <p class="section-label">Presets</p>
+        <h2>Start with a policy profile, then tighten.</h2>
         <ul class="clean-list">
           <li><strong>Strict:</strong> internal platforms, core algorithms, finance, security-sensitive services</li>
           <li><strong>Balanced:</strong> most application repos and first external-AI pilots</li>
@@ -210,14 +170,14 @@ presets/public-sdk-ai-gateway.yaml</code></pre>
       </div>
     </section>
 
-<section class="section alt two-col">
+    <section class="section two-col">
       <div>
         <p class="section-label">Ideal Users</p>
         <h2>Built for teams adopting external AI carefully.</h2>
         <ul class="clean-list">
           <li>Teams with private repositories and external AI coding workflows</li>
           <li>Security-conscious engineering orgs that want a local-first starting point</li>
-          <li>Companies that are not ready for a full enterprise DLP or self-hosted model stack</li>
+          <li>Companies not ready for a full enterprise DLP or self-hosted model stack</li>
         </ul>
       </div>
       <div>
@@ -234,13 +194,17 @@ presets/public-sdk-ai-gateway.yaml</code></pre>
   <footer class="footer">
     <p><strong>CodeMosaic</strong> helps teams use external AI coding tools without giving up control over what their code reveals.</p>
     <p>
-      <a href="https://github.com/Alexxigang/codemosaic/blob/main/README.md">README</a>
-      <span>·</span>
+      <a href="https://github.com/Alexxigang/codemosaic/blob/main/README.en.md">README EN</a>
+      <span>|</span>
+      <a href="https://github.com/Alexxigang/codemosaic/blob/main/README.zh-CN.md">README ZH-CN</a>
+      <span>|</span>
       <a href="../landing-page.md">Product brief</a>
-      <span>·</span>
+      <span>|</span>
       <a href="../demo-walkthrough.md">Demo walkthrough</a>
-      <span>·</span>
+      <span>|</span>
       <a href="../release-playbook.md">Release playbook</a>
+      <span>|</span>
+      <a href="../../RELEASE_CHECKLIST.md">RELEASE_CHECKLIST.md</a>
     </p>
   </footer>
 </body>
