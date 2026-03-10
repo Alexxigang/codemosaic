@@ -1,97 +1,106 @@
-﻿# CodeMosaic
+# CodeMosaic
 
-语言： [English](README.en.md) | **简体中文**
+Language: [English](README.md) | **简体中文**
 
-CodeMosaic 是一个本地优先的 AI 代码隐私网关，目标是帮助团队在使用外部 AI 编程工具时，不必把原始的专有代码直接暴露到工作站边界之外。
+CodeMosaic 是一个 **local-first 的 AI 代码隐私网关**，专门给想使用外部 AI 编程工具，但不想把原始商业代码发出机器边界之外的团队。
 
-它不是一个“简单打码脚本”。这个项目想做的是一条可落地、可逆、可治理的闭环流程：
+它不只是“秘密字符串替换”或“脱敏脚本”，而是一条可逆、可治理、可审计的完整闭环：
 
 `scan -> mask -> leakage-report -> safe export -> AI patch -> unmask/apply`
 
-## 核心差异化
+## 这个项目的差异化
 
-很多工具只做到下面某一步：
+市面上很多工具只解决其中一个点：
 
-- 扫描 secret
+- 扫描 secrets
 - 单向脱敏
-- 打包 prompt
+- 把 prompt 打包给 AI
 
-CodeMosaic 想继续往前走三步：
+CodeMosaic 想做的是再走一步，而且是从“企业真实可用”的角度设计：
 
 1. **可逆工作流**
-   - 代码发出去之前先做 mask
-   - 映射表只保留在本地
-   - AI 生成的补丁还能翻译回原始仓库
+   - 在代码离开本地之前先 `mask`
+   - mapping 始终保留在本地
+   - 把 AI 生成的 patch 翻译回原仓库
 
 2. **语义泄漏控制**
-   - 不只看 secret 有没有藏住
-   - 还评估 mask 之后还剩多少业务语义泄漏
-   - 在真正导出前给出风险评分和阻断结果
+   - 不只看“是否脱敏”，还评估“还剩下多少业务意义泄漏”
+   - 对文件和路径进行 leakage score
+   - 当风险超阈值时阻断导出
 
-3. **策略化的密钥与导出治理**
-   - 对敏感路径强制加密 mapping
-   - 从环境变量或文件解析托管密钥
-   - 记录 `key_id`，让轮换和审计更像正式产品
+3. **基于 policy 的密钥与治理能力**
+   - 对敏感路径强制 mapping 加密
+   - 从 `env` / `file` / registry 解析密钥材料
+   - 记录 `key_id`，支持轮换、审计、密钥生命周期管理
+   - 对 mapping 做防篡改签名与验签
+   - 对历史 run 做加密 / 签名 / 验签状态审计
 
-核心卖点是：**不只是“有没有藏住秘密”，而是“这份 mask 后的代码现在到底能不能安全发给外部 AI”。**
+这个产品角度的差异点在于：**不只是“有没有把 secret 挡住”，而是“这份给 AI 的代码现在是否真的还可以安全发送”。**
 
-## 当前已经有的能力
+## 当前已有功能
 
 ### 核心 CLI
 
 - `scan`：扫描疑似敏感内容
 - `mask`：生成脱敏工作区
-- `mask-segmented`：按策略分段生成多个脱敏工作区
-- `plan-segments`：预览按策略切分出来的 masking 分段
-- `leakage-report`：评估语义泄漏分数与阈值结果
-- `bundle`：构建给外部 AI 使用的 Markdown 上下文包
-- `unmask-patch`：把 mask 后补丁翻译回原始符号
-- `verify-mapping`??? mapping ?????
-- `apply`：调用 `git apply` 应用翻译后的补丁
-- `rekey-mapping` 与 `rekey-runs`：重包裹 mapping，支持轮换密钥
+- `mask-segmented`：按 policy 分段生成多份脱敏输出
+- `plan-segments`：预览分段规则
+- `leakage-report`：评估语义泄漏风险
+- `bundle`：构建发给外部 AI 的 Markdown 上下文包
+- `unmask-patch`：把 mask 后 patch 翻译回原始符号
+- `verify-mapping`：验证 mapping 签名是否有效
+- `audit-runs`：审计历史 run 的加密与签名状态
+- `apply`：使用 `git apply` 应用翻译后的 patch
+- `rekey-mapping` / `rekey-runs`：mapping 重包装和密钥轮换
 - `generate-key`：生成高熵 mapping 密钥
-- `register-key-source` / `list-key-sources` / `set-key-source-status`：管理工作区级别的 key registry 生命周期
-- `list-providers`：查看当前可用的加密 provider
+- `register-key-source` / `list-key-sources` / `set-key-source-status`：管理工作区 key registry
+- `list-providers`：查看可用加密 provider
 
 ### 隐私与治理能力
 
 - 本地 mapping vault，位于 `.codemosaic/runs/...`
-- 支持传统口令式 mapping 加密
-- 支持 `managed-v1` 托管密钥流程
-- 支持从 `env` / `file` 解析密钥来源
+- 支持口令式 mapping 加密
+- 支持 `managed-v1` 托管密钥模式
 - 支持 `active` / `decrypt-only` / `retired` 三种密钥状态
-- ????? mapping ??????????
-- 支持记录 `key_id`，便于轮换和审计
-- 支持总分与单文件级别的泄漏预算阈值
-- 支持按路径分段的 masking 策略
+- 支持 mapping 防篡改签名与验签
+- 支持 run 级审计与 governance 摘要
+- 支持 `key_id` / `signature key_id` 记录
+- 支持 total / file 级 leakage budget
+- 支持 segment-aware masking 规则
 
 ## 快速开始
 
-### 1）先扫描仓库
+### 环境要求
+
+- Python `3.11+`
+- 本地可用 Git
+- 如果要试 VS Code 原型，可选 Node.js + VS Code
+
+### 1) 扫描仓库
 
 ```bash
 python -m codemosaic scan ./your-repo --policy policy.sample.yaml --output scan-report.json
 ```
 
-### 2）先生成一把托管密钥
+### 2) 生成 mapping 密钥
 
 ```bash
 python -m codemosaic generate-key --output ./.codemosaic/keys/team-dev.key
 ```
 
-PowerShell：
+PowerShell:
 
 ```powershell
 $env:CODEMOSAIC_MAPPING_KEY = Get-Content ./.codemosaic/keys/team-dev.key
 ```
 
-### 3）先把密钥来源注册到工作区
+### 3) 注册工作区密钥来源
 
 ```bash
 python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
 ```
 
-### 4）生成脱敏工作区
+### 4) 生成脱敏工作区
 
 ```bash
 python -m codemosaic mask ./your-repo --policy policy.sample.yaml
@@ -99,22 +108,22 @@ python -m codemosaic mask ./your-repo --policy policy.sample.yaml
 
 默认会生成：
 
-- 脱敏后的代码目录：`./your-repo.masked`
-- 运行产物目录：`./your-repo/.codemosaic/runs/<run-id>/`
+- `./your-repo.masked`
+- `./your-repo/.codemosaic/runs/<run-id>/`
 
-### 5）计算语义泄漏
+### 5) 评估 leakage
 
 ```bash
 python -m codemosaic leakage-report ./your-repo.masked --policy policy.sample.yaml --output leakage-report.json
 ```
 
-### 6）阻断不安全导出
+### 6) 安全导出 AI bundle
 
 ```bash
-python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold
+python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --max-files 20 --max-chars 12000
 ```
 
-### 7）把 AI 补丁翻译回原仓库
+### 7) 翻译 AI patch
 
 ```bash
 python -m codemosaic unmask-patch ./masked-response.patch --mapping ./your-repo/.codemosaic/runs/<run-id>/mapping.enc.json --key-env CODEMOSAIC_MAPPING_KEY --output translated.patch
@@ -122,22 +131,78 @@ python -m codemosaic apply translated.patch --target ./your-repo --check
 python -m codemosaic apply translated.patch --target ./your-repo
 ```
 
-## 更像正式产品的密钥管理模型
+## 更像正式产品的密钥与签名管理
 
-CodeMosaic 现在支持一种更“产品化”的密钥工作流，而不只是临时口令。现在还支持通过本地工作区 key registry 用 `key_id` 解析实际密钥来源。
-
-### `managed-v1`
+### managed mapping key
 
 `managed-v1` 是内置 provider，面向 `generate-key` 生成的高熵密钥材料。
 
-推荐方式：
+### 工作区 key registry
 
-- 先生成随机密钥
-- 把它放进本地 secret store、环境变量或受保护文件
-- 在 policy 里只写“引用关系”
-- 用 `key_id` 标记当前生效密钥版本
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+python -m codemosaic list-key-sources ./your-repo
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+```
 
-### 策略驱动的密钥解析
+状态说明：
+
+- `active`：可用于新加密和解密
+- `decrypt-only`：不再用于新加密，但仍可解密与 rekey
+- `retired`：不再参与 registry 自动解析
+
+### 密钥轮换
+
+```powershell
+$env:OLD_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev.key
+$env:NEW_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev-v2.key
+python -m codemosaic rekey-runs ./your-repo --key-env OLD_CODEMOSAIC_KEY --new-key-env NEW_CODEMOSAIC_KEY --new-key-id team-dev-2026q2 --encryption-provider managed-v1
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2025q4 --status retired
+```
+
+推荐节奏：
+
+1. 新密钥保持 `active`
+2. 上一代密钥切到 `decrypt-only`
+3. 更早的密钥在 mapping 完成 rewrap 或过期后切到 `retired`
+
+### 签名验真
+
+```bash
+python -m codemosaic verify-mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature
+```
+
+对于加密 mapping，签名覆盖的是 envelope 元数据和密文，无需先解密。
+
+### run 审计
+
+```bash
+python -m codemosaic audit-runs ./your-repo --signing-key-env CODEMOSAIC_AUDIT_KEY --output run-audit.json
+```
+
+它会输出一份治理友好的摘要，明确告诉你哪些 run 已加密、哪些 run 已签名、哪些 run 已验签通过。
+
+### unmask 强制验签 gate
+
+现在 `unmask-patch` 可以加载 policy，并在翻译 patch 前强制要求 mapping 已签名且验签通过。
+
+```yaml
+mapping:
+  require_signature_for_unmask: true
+  signature_management:
+    source: env
+    reference: CODEMOSAIC_AUDIT_KEY
+    key_id: audit-2026q1
+```
+
+```bash
+python -m codemosaic unmask-patch ./masked-response.patch   --mapping ./.codemosaic/runs/<run-id>/mapping.enc.json   --policy policy.sample.yaml   --key-env CODEMOSAIC_MAPPING_KEY   --output translated.patch
+```
+
+## policy 方向
+
+### 按路径强制 mapping 加密
 
 ```yaml
 mapping:
@@ -153,90 +218,53 @@ mapping:
       encryption_provider: managed-v1
 ```
 
-当前支持的密钥来源：
+### leakage budget gate
 
-- `env`
-- `file`
+```yaml
+leakage:
+  max_total_score: 20
+  max_file_score: 8
+  rules:
+    src/secret/**:
+      max_total_score: 4
+      max_file_score: 0
+```
 
-### 工作区 key registry
-
-团队可以在每个工作区内注册可复用的密钥来源引用：
+### 分段规划
 
 ```bash
-python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
-python -m codemosaic list-key-sources ./your-repo
-python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
+python -m codemosaic plan-segments ./your-repo --policy policy.sample.yaml --output segment-plan.json
+python -m codemosaic mask-segmented ./your-repo --policy policy.sample.yaml --output ./segmented-output
 ```
 
-registry 里的条目支持三种生命周期状态：
+## VS Code 原型
 
-- `active`：可用于新加密，也可用于解密
-- `decrypt-only`：不能再用于新加密，但仍可用于解密和 rekey
-- `retired`：不再参与 registry 的自动解析
-
-之后 policy 里只需要写 `key_id`，`mask` 会自动从 `.codemosaic/key-registry.json` 解析对应来源。
-
-### 密钥轮换
-
-```powershell
-$env:OLD_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev.key
-$env:NEW_CODEMOSAIC_KEY = Get-Content ./.codemosaic/keys/team-dev-v2.key
-python -m codemosaic rekey-runs ./your-repo --key-env OLD_CODEMOSAIC_KEY --new-key-env NEW_CODEMOSAIC_KEY --new-key-id team-dev-2026q2 --encryption-provider managed-v1
-python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2026q1 --status decrypt-only
-python -m codemosaic set-key-source-status ./your-repo --key-id team-dev-2025q4 --status retired
-```
-
-推荐的轮换节奏：
-
-1. 新密钥保持 `active`。
-2. 上一把密钥切到 `decrypt-only`，保证历史 run 还能继续翻译补丁。
-3. 更老的密钥在相关 mapping 完成 rewrap 或过期后再切到 `retired`。
-
-### ????
-
-CodeMosaic ????????????? mapping ?????????? unmask AI ????????? mapping envelope ??????
+仓库内包含 `extensions/vscode` 原型扩展，可以进入编辑器中直接调用本地工作流。
 
 ```bash
-python -m codemosaic verify-mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --signing-key-env CODEMOSAIC_AUDIT_KEY --require-signature
+python scripts/package_vscode_extension.py --overwrite
 ```
-
-??????????? mapping ??? mapping????? mapping??????? envelope ???????????????????
-
-### 元数据与可审计性
-
-现在加密后的 mapping envelope 会保留一小部分安全头信息，例如：
-
-- `run_id`
-- `generated_at`
-- `encryption_provider`
-- `key_management.key_id`
-- `key_management.source`
-
-这样即使不解开完整 mapping，也能更方便地做运维检查和轮换管理。
 
 ## 文档索引
 
-- `docs/key-management.md`：托管密钥工作流、策略引用与轮换说明
-- `docs/leakage-gate.md`：语义泄漏评分与 gate 行为
-- `docs/ci-governance.md`：CI 中的策略治理样例
-- `docs/demo-walkthrough.md`：演示流程
-- `docs/landing-page.md`：落地页文案草稿
-- `docs/release-playbook.md`：本地发版步骤与素材
+- `docs/key-management.md`：托管密钥、签名、轮换和 registry
+- `docs/leakage-gate.md`：leakage score 和 gate 行为
+- `docs/ci-governance.md`：CI / governance 示例
+- `docs/demo-walkthrough.md`：demo 演示流程
+- `docs/landing-page.md`：官网 / 落地页文案
+- `docs/release-playbook.md`：本地发版流程
+- `docs/site/index.html`：静态站点源文件
 
 ## 安全边界
 
-CodeMosaic 能显著降低暴露风险，但它不是魔法。
+CodeMosaic 能显著降低对外发送 AI 代码上下文的风险，但它不是魔法。
 
-- Masking 不能保证零语义泄漏
-- Prompt 文本本身仍可能泄漏业务背景
-- 当前 leakage 分析仍是启发式，不是完整 DLP
-- `managed-v1` 让密钥处理流程更像正式产品，但它仍是开源原型，不等同于经过正式审计的企业级 KMS
-- 对高敏环境，仍建议叠加 DLP、审计、最小上下文发送和自托管 AI
+- masking 不等于零泄漏
+- prompt 文本自身仍可能泄露业务背景
+- leakage 分析目前是启发式，不是完整 DLP
+- `managed-v1` 和签名能力让它更接近正式产品，但仍不等同于经过正式审计的企业 KMS / DLP 体系
+- 对高敏场景，仍建议叠加 DLP、audit log、最小化上下文和 self-hosted AI
 
-## 一句话介绍
+## 一句话
 
 **CodeMosaic 帮助团队使用外部 AI 编程工具，同时不失去对代码泄漏边界的控制。**
-
-
-
-

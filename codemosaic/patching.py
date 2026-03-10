@@ -7,8 +7,18 @@ from pathlib import Path
 from codemosaic.mapping import load_mapping_payload
 
 
-def load_reverse_mapping(mapping_file: Path, passphrase: str | None = None) -> dict[str, str]:
-    payload = load_mapping_payload(mapping_file, passphrase=passphrase)
+def load_reverse_mapping(
+    mapping_file: Path,
+    passphrase: str | None = None,
+    signing_key: str | None = None,
+    require_signature: bool = False,
+) -> dict[str, str]:
+    payload = load_mapping_payload(
+        mapping_file,
+        passphrase=passphrase,
+        signing_key=signing_key,
+        require_signature=require_signature,
+    )
     reverse = payload.get("masked_to_original", {})
     return {str(key): str(value) for key, value in reverse.items()} if isinstance(reverse, dict) else {}
 
@@ -27,10 +37,17 @@ def translate_patch_file(
     mapping_file: Path,
     output_file: Path,
     passphrase: str | None = None,
+    signing_key: str | None = None,
+    require_signature: bool = False,
 ) -> Path:
     translated = translate_patch_text(
         patch_file.read_text(encoding="utf-8"),
-        load_reverse_mapping(mapping_file, passphrase=passphrase),
+        load_reverse_mapping(
+            mapping_file,
+            passphrase=passphrase,
+            signing_key=signing_key,
+            require_signature=require_signature,
+        ),
     )
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text(translated, encoding="utf-8")

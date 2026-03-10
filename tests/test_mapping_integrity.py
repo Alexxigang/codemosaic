@@ -112,12 +112,75 @@ class MappingIntegrityTests(unittest.TestCase):
             status = verify_mapping_file(mapping_files[0], signing_key='policy-audit-key', require_signature=True)
             self.assertTrue(status.verified)
 
+
+    def test_cli_unmask_patch_policy_requires_signature(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir) / 'repo'
+            workspace.mkdir()
+            run_dir = workspace / '.codemosaic' / 'runs' / 'demo'
+            run_dir.mkdir(parents=True)
+            mapping_path = run_dir / 'mapping.enc.json'
+            patch_path = Path(temp_dir) / 'masked.patch'
+            output_path = Path(temp_dir) / 'translated.patch'
+            policy_path = workspace / 'policy.yaml'
+            key_file = Path(temp_dir) / 'managed.key'
+            key_file.write_text('managed-key\n', encoding='utf-8')
+
+            vault = MappingVault()
+            masked_identifier = vault.mask_identifier('tradeGateway')
+            vault.save(
+                mapping_path,
+                passphrase='managed-key',
+                signing_key='audit-key',
+                signing_metadata={'key_id': 'audit-2026q1'},
+            )
+            patch_path.write_text(f'- {masked_identifier}\n', encoding='utf-8')
+            policy_path.write_text(
+                'mapping:\n'
+                '  require_signature_for_unmask: true\n'
+                '  signature_management:\n'
+                '    source: env\n'
+                '    reference: CODEMOSAIC_AUDIT_KEY\n'
+                '    key_id: audit-2026q1\n',
+                encoding='utf-8',
+            )
+
+            failed = subprocess.run(
+                [
+                    'python', '-m', 'codemosaic', 'unmask-patch', str(patch_path),
+                    '--mapping', str(mapping_path), '--policy', str(policy_path), '--key-file', str(key_file), '--output', str(output_path),
+                ],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(failed.returncode, 2)
+            self.assertIn("environment variable 'CODEMOSAIC_AUDIT_KEY' is missing or empty", failed.stderr)
+
+            env = os.environ.copy()
+            env['CODEMOSAIC_AUDIT_KEY'] = 'audit-key'
+            passed = subprocess.run(
+                [
+                    'python', '-m', 'codemosaic', 'unmask-patch', str(patch_path),
+                    '--mapping', str(mapping_path), '--policy', str(policy_path), '--key-file', str(key_file), '--output', str(output_path),
+                ],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+                env=env,
+            )
+            self.assertIn('translated patch:', passed.stdout)
+            self.assertIn('tradeGateway', output_path.read_text(encoding='utf-8'))
+
     def test_policy_loads_signature_management_from_yaml(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             policy_path = Path(temp_dir) / 'policy.yaml'
             policy_path.write_text(
                 'mapping:\n'
                 '  require_encryption: true\n'
+                '  require_signature_for_unmask: true\n'
                 '  signature_management:\n'
                 '    source: env\n'
                 '    reference: CODEMOSAIC_AUDIT_KEY\n'
@@ -125,6 +188,7 @@ class MappingIntegrityTests(unittest.TestCase):
                 encoding='utf-8',
             )
             policy = load_policy(policy_path)
+            self.assertTrue(policy.mapping.require_signature_for_unmask)
             self.assertEqual(policy.mapping.signature_management.source, 'env')
             self.assertEqual(policy.mapping.signature_management.reference, 'CODEMOSAIC_AUDIT_KEY')
             self.assertEqual(policy.mapping.signature_management.key_id, 'audit-2026q1')

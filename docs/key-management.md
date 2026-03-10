@@ -159,6 +159,25 @@ Recommended usage:
 - keep the active signing key in `active` status for new signatures
 - move old signing keys to `decrypt-only` when they should verify historical mappings but stop signing new ones
 
+## Unmask gate
+
+If you want patch translation to fail unless the mapping file is signed and verified, add this to policy:
+
+```yaml
+mapping:
+  require_signature_for_unmask: true
+  signature_management:
+    source: env
+    reference: CODEMOSAIC_AUDIT_KEY
+    key_id: audit-2026q1
+```
+
+Then call:
+
+```bash
+python -m codemosaic unmask-patch ./masked-response.patch --mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --policy policy.sample.yaml --key-env CODEMOSAIC_MAPPING_KEY --output translated.patch
+```
+
 ## Metadata
 
 Encrypted mapping envelopes keep a safe header with selected metadata such as:

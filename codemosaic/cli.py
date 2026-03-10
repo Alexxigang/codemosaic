@@ -81,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     unmask_parser = subparsers.add_parser('unmask-patch', help='Translate a masked patch')
     unmask_parser.add_argument('patch', type=Path)
     unmask_parser.add_argument('--mapping', type=Path, required=True)
+    unmask_parser.add_argument('--policy', type=Path, default=None)
     unmask_parser.add_argument('--output', type=Path, default=Path('translated.patch'))
     _add_key_material_arguments(unmask_parser)
     _add_signature_material_arguments(unmask_parser)
@@ -343,33 +344,42 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == 'unmask-patch':
             mapping_file = args.mapping.resolve()
+            workspace_root = _infer_workspace_root_from_mapping(mapping_file)
+            policy = load_policy(args.policy.resolve() if args.policy else None)
             registry_path = _resolve_registry_path(
                 args,
-                workspace_root=_infer_workspace_root_from_mapping(mapping_file),
-                policy=None,
+                workspace_root=workspace_root,
+                policy=policy,
             )
             signature_registry_path = _resolve_registry_path(
                 args,
-                workspace_root=_infer_workspace_root_from_mapping(mapping_file),
-                policy=None,
+                workspace_root=workspace_root,
+                policy=policy,
                 registry_attr='signing_key_registry',
                 policy_config_attr='signature_management',
             ) or registry_path
-            key_material = _resolve_active_key_material(args, None, registry_path=registry_path, usage_mode='decrypt', required=False)
-            signature_material = _resolve_signature_material(
+            require_signature = policy.mapping.require_signature_for_unmask if policy is not None else False
+            key_material = _resolve_active_key_material(
                 args,
-                None,
-                registry_path=signature_registry_path,
+                policy,
+                registry_path=registry_path,
                 usage_mode='decrypt',
                 required=False,
             )
-            if signature_material.secret:
-                verify_mapping_file(mapping_file, signing_key=signature_material.secret, require_signature=False)
+            signature_material = _resolve_signature_material(
+                args,
+                policy,
+                registry_path=signature_registry_path,
+                usage_mode='decrypt',
+                required=require_signature,
+            )
             output_file = translate_patch_file(
                 args.patch.resolve(),
                 mapping_file,
                 args.output.resolve(),
                 passphrase=key_material.secret,
+                signing_key=signature_material.secret,
+                require_signature=require_signature,
             )
             print(f'translated patch: {output_file}')
             return 0

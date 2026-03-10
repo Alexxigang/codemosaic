@@ -57,6 +57,7 @@ class MappingPolicy:
     encryption_provider: str | None = None
     key_management: MappingKeyManagementPolicy = field(default_factory=MappingKeyManagementPolicy)
     signature_management: MappingKeyManagementPolicy = field(default_factory=MappingKeyManagementPolicy)
+    require_signature_for_unmask: bool = False
     rules: list[MappingRulePolicy] = field(default_factory=list)
 
 
@@ -140,6 +141,9 @@ class MaskPolicy:
                 ),
                 key_management=_load_mapping_key_management(mapping, 'key_management'),
                 signature_management=_load_mapping_key_management(mapping, 'signature_management'),
+                require_signature_for_unmask=(
+                    bool(mapping.get('require_signature_for_unmask', False)) if isinstance(mapping, dict) else False
+                ),
                 rules=_load_mapping_rules(mapping.get('rules', {})) if isinstance(mapping, dict) else [],
             ),
             leakage=LeakagePolicy(

@@ -262,6 +262,23 @@ python -m codemosaic audit-runs ./your-repo --signing-key-env CODEMOSAIC_AUDIT_K
 
 This produces a governance-friendly summary of which runs are encrypted, signed, and fully verified.
 
+### Unmask signature gate
+
+`unmask-patch` can now load a policy and require a valid mapping signature before patch translation:
+
+```yaml
+mapping:
+  require_signature_for_unmask: true
+  signature_management:
+    source: env
+    reference: CODEMOSAIC_AUDIT_KEY
+    key_id: audit-2026q1
+```
+
+```bash
+python -m codemosaic unmask-patch ./masked-response.patch --mapping ./.codemosaic/runs/<run-id>/mapping.enc.json --policy policy.sample.yaml --key-env CODEMOSAIC_MAPPING_KEY --output translated.patch
+```
+
 ### Metadata and auditability
 
 Encrypted mapping envelopes now keep safe header metadata such as:
