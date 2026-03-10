@@ -37,7 +37,13 @@ mapping:
     key_id: team-dev-2026q1
 ```
 
-4. Run `mask` normally. If policy requires encrypted mappings, CodeMosaic resolves the key source automatically.
+4. Optionally register that key source inside the workspace:
+
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+```
+
+5. Run `mask` normally. If policy requires encrypted mappings, CodeMosaic resolves the key source automatically.
 
 ## Supported sources
 
@@ -61,6 +67,31 @@ key_management:
   source: file
   reference: ./.codemosaic/keys/team-dev.key
   key_id: team-dev-2026q1
+```
+
+## Workspace key registry
+
+CodeMosaic supports a local workspace registry at `.codemosaic/key-registry.json`.
+
+Register a source once:
+
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+```
+
+List registered entries:
+
+```bash
+python -m codemosaic list-key-sources ./your-repo
+```
+
+Then policy may reference only the key ID:
+
+```yaml
+mapping:
+  require_encryption: true
+  key_management:
+    key_id: team-dev-2026q1
 ```
 
 ## Providers

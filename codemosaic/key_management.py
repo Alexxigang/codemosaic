@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 import secrets
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+
+from codemosaic.crypto import MANAGED_PROVIDER_ID
 
 
 SUPPORTED_KEY_SOURCES = {'env', 'file'}
@@ -15,6 +19,32 @@ class KeyManagementConfig:
     source: str | None = None
     reference: str | None = None
     key_id: str | None = None
+    registry_file: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredKeySource:
+    key_id: str
+    source: str
+    reference: str
+    provider: str = MANAGED_PROVIDER_ID
+    status: str = 'active'
+    created_at: str | None = None
+    notes: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            'key_id': self.key_id,
+            'source': self.source,
+            'reference': self.reference,
+            'provider': self.provider,
+            'status': self.status,
+        }
+        if self.created_at:
+            payload['created_at'] = self.created_at
+        if self.notes:
+            payload['notes'] = self.notes
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +54,7 @@ class ResolvedKeyMaterial:
     reference: str | None = None
     key_id: str | None = None
     origin: str | None = None
+    registry_path: str | None = None
 
     def to_metadata(self) -> dict[str, object]:
         metadata: dict[str, object] = {
@@ -37,6 +68,8 @@ class ResolvedKeyMaterial:
             metadata['key_id'] = self.key_id
         if self.origin:
             metadata['origin'] = self.origin
+        if self.registry_path:
+            metadata['registry_path'] = self.registry_path
         return metadata
 
 
@@ -53,6 +86,109 @@ def generate_mapping_key(length_bytes: int = 32, fmt: str = 'base64') -> str:
 
 
 
+def default_key_registry_path(workspace_root: Path) -> Path:
+    return workspace_root / '.codemosaic' / 'key-registry.json'
+
+
+
+def load_key_registry(path: Path) -> list[RegisteredKeySource]:
+    if not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding='utf-8'))
+    items = payload.get('keys', []) if isinstance(payload, dict) else []
+    entries: list[RegisteredKeySource] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        key_id = str(item.get('key_id', '')).strip()
+        source = str(item.get('source', '')).strip()
+        reference = str(item.get('reference', '')).strip()
+        if not key_id or not source or not reference:
+            continue
+        entries.append(
+            RegisteredKeySource(
+                key_id=key_id,
+                source=source,
+                reference=reference,
+                provider=str(item.get('provider', MANAGED_PROVIDER_ID) or MANAGED_PROVIDER_ID),
+                status=str(item.get('status', 'active') or 'active'),
+                created_at=str(item.get('created_at')) if item.get('created_at') is not None else None,
+                notes=str(item.get('notes')) if item.get('notes') is not None else None,
+            )
+        )
+    return entries
+
+
+
+def find_registered_key_source(path: Path, key_id: str) -> RegisteredKeySource | None:
+    normalized = key_id.strip()
+    for entry in load_key_registry(path):
+        if entry.key_id == normalized:
+            return entry
+    return None
+
+
+
+def register_key_source(
+    path: Path,
+    *,
+    key_id: str,
+    source: str,
+    reference: str,
+    provider: str = MANAGED_PROVIDER_ID,
+    status: str = 'active',
+    notes: str | None = None,
+) -> RegisteredKeySource:
+    normalized_source = source.strip()
+    if normalized_source not in SUPPORTED_KEY_SOURCES:
+        raise ValueError(f"unsupported key management source: '{normalized_source}'")
+    timestamp = datetime.now().isoformat(timespec='seconds')
+    entry = RegisteredKeySource(
+        key_id=key_id.strip(),
+        source=normalized_source,
+        reference=reference.strip(),
+        provider=provider.strip() or MANAGED_PROVIDER_ID,
+        status=status.strip() or 'active',
+        created_at=timestamp,
+        notes=notes.strip() if isinstance(notes, str) and notes.strip() else None,
+    )
+    existing = load_key_registry(path)
+    updated: list[RegisteredKeySource] = []
+    replaced = False
+    for current in existing:
+        if current.key_id == entry.key_id:
+            updated.append(
+                RegisteredKeySource(
+                    key_id=entry.key_id,
+                    source=entry.source,
+                    reference=entry.reference,
+                    provider=entry.provider,
+                    status=entry.status,
+                    created_at=current.created_at or entry.created_at,
+                    notes=entry.notes,
+                )
+            )
+            replaced = True
+        else:
+            updated.append(current)
+    if not replaced:
+        updated.append(entry)
+    write_key_registry(path, updated)
+    return find_registered_key_source(path, entry.key_id) or entry
+
+
+
+def write_key_registry(path: Path, entries: list[RegisteredKeySource]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        'format': 'codemosaic-key-registry-v1',
+        'keys': [entry.to_dict() for entry in sorted(entries, key=lambda item: item.key_id)],
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding='utf-8')
+    return path
+
+
+
 def resolve_key_material(
     *,
     key_env: str | None = None,
@@ -62,6 +198,7 @@ def resolve_key_material(
     passphrase_file: Path | None = None,
     policy: KeyManagementConfig | None = None,
     policy_base_dir: Path | None = None,
+    registry_path: Path | None = None,
     required: bool = False,
     missing_message: str,
     key_env_option: str = '--key-env',
@@ -92,6 +229,7 @@ def resolve_key_material(
             reference=cli_key_reference,
             key_id=key_id,
             origin='cli-key',
+            registry_path=str(registry_path) if registry_path else None,
         )
     if cli_passphrase_value:
         return ResolvedKeyMaterial(
@@ -100,19 +238,38 @@ def resolve_key_material(
             reference=cli_passphrase_reference,
             key_id=key_id,
             origin='cli-passphrase',
+            registry_path=str(registry_path) if registry_path else None,
         )
+    effective_key_id = key_id or (policy.key_id if policy else None)
     if policy and policy.source:
         value = _read_source(policy.source, policy.reference, base_dir=policy_base_dir)
         return ResolvedKeyMaterial(
             secret=value,
             source=policy.source,
             reference=policy.reference,
-            key_id=key_id or policy.key_id,
+            key_id=effective_key_id,
             origin='policy',
+            registry_path=str(registry_path) if registry_path else None,
         )
+    if effective_key_id and registry_path is not None:
+        entry = find_registered_key_source(registry_path, effective_key_id)
+        if entry is not None:
+            value = _read_source(entry.source, entry.reference, base_dir=registry_path.parent)
+            return ResolvedKeyMaterial(
+                secret=value,
+                source=entry.source,
+                reference=entry.reference,
+                key_id=entry.key_id,
+                origin='registry',
+                registry_path=str(registry_path),
+            )
     if required:
         raise ValueError(missing_message)
-    return ResolvedKeyMaterial(secret=None, key_id=key_id or (policy.key_id if policy else None))
+    return ResolvedKeyMaterial(
+        secret=None,
+        key_id=effective_key_id,
+        registry_path=str(registry_path) if registry_path else None,
+    )
 
 
 

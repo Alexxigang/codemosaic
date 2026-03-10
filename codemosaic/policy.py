@@ -48,6 +48,7 @@ class MappingKeyManagementPolicy:
     source: str | None = None
     reference: str | None = None
     key_id: str | None = None
+    registry_file: str | None = None
 
 
 @dataclass(slots=True)
@@ -158,6 +159,13 @@ class MaskPolicy:
                         and mapping.get('key_management', {}).get('key_id') is not None
                         else None
                     ),
+                    registry_file=(
+                        str(mapping.get('key_management', {}).get('registry_file'))
+                        if isinstance(mapping, dict)
+                        and isinstance(mapping.get('key_management'), dict)
+                        and mapping.get('key_management', {}).get('registry_file') is not None
+                        else None
+                    ),
                 ),
                 rules=_load_mapping_rules(mapping.get('rules', {})) if isinstance(mapping, dict) else [],
             ),
@@ -188,7 +196,7 @@ class MaskPolicy:
                 matched_specific_providers.add(rule.encryption_provider)
         effective_encryption = require_encryption or encryption_requested
         default_provider = provider_override or self.mapping.encryption_provider
-        if default_provider is None and self.mapping.key_management.source:
+        if default_provider is None and (self.mapping.key_management.source or self.mapping.key_management.key_id):
             default_provider = MANAGED_PROVIDER_ID
         effective_provider = _resolve_policy_provider(
             matched_specific_providers,

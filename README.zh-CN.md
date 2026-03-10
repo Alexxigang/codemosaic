@@ -49,6 +49,7 @@ CodeMosaic 想继续往前走三步：
 - `apply`：调用 `git apply` 应用翻译后的补丁
 - `rekey-mapping` 与 `rekey-runs`：重包裹 mapping，支持轮换密钥
 - `generate-key`：生成高熵 mapping 密钥
+- `register-key-source` / `list-key-sources`：管理工作区级别的 key registry
 - `list-providers`：查看当前可用的加密 provider
 
 ### 隐私与治理能力
@@ -81,7 +82,13 @@ PowerShell：
 $env:CODEMOSAIC_MAPPING_KEY = Get-Content ./.codemosaic/keys/team-dev.key
 ```
 
-### 3）生成脱敏工作区
+### 3）先把密钥来源注册到工作区
+
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+```
+
+### 4）生成脱敏工作区
 
 ```bash
 python -m codemosaic mask ./your-repo --policy policy.sample.yaml
@@ -92,19 +99,19 @@ python -m codemosaic mask ./your-repo --policy policy.sample.yaml
 - 脱敏后的代码目录：`./your-repo.masked`
 - 运行产物目录：`./your-repo/.codemosaic/runs/<run-id>/`
 
-### 4）计算语义泄漏
+### 5）计算语义泄漏
 
 ```bash
 python -m codemosaic leakage-report ./your-repo.masked --policy policy.sample.yaml --output leakage-report.json
 ```
 
-### 5）阻断不安全导出
+### 6）阻断不安全导出
 
 ```bash
 python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold
 ```
 
-### 6）把 AI 补丁翻译回原仓库
+### 7）把 AI 补丁翻译回原仓库
 
 ```bash
 python -m codemosaic unmask-patch ./masked-response.patch --mapping ./your-repo/.codemosaic/runs/<run-id>/mapping.enc.json --key-env CODEMOSAIC_MAPPING_KEY --output translated.patch
@@ -114,7 +121,7 @@ python -m codemosaic apply translated.patch --target ./your-repo
 
 ## 更像正式产品的密钥管理模型
 
-CodeMosaic 现在支持一种更“产品化”的密钥工作流，而不只是临时口令。
+CodeMosaic 现在支持一种更“产品化”的密钥工作流，而不只是临时口令。现在还支持通过本地工作区 key registry 用 `key_id` 解析实际密钥来源。
 
 ### `managed-v1`
 
@@ -147,6 +154,17 @@ mapping:
 
 - `env`
 - `file`
+
+### 工作区 key registry
+
+团队可以在每个工作区内注册可复用的密钥来源引用：
+
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+python -m codemosaic list-key-sources ./your-repo
+```
+
+之后 policy 里只需要写 `key_id`，`mask` 会自动从 `.codemosaic/key-registry.json` 解析对应来源。
 
 ### 密钥轮换
 

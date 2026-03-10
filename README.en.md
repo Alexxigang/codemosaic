@@ -49,6 +49,7 @@ That product angle is the core differentiator: **not only "did we hide secrets?"
 - `apply` to apply translated patches with `git apply`
 - `rekey-mapping` and `rekey-runs` for mapping re-protection
 - `generate-key` to create high-entropy managed mapping keys
+- `register-key-source` and `list-key-sources` for workspace key registry management
 - `list-providers` to inspect mapping encryption providers
 
 ### Privacy controls
@@ -94,7 +95,13 @@ PowerShell:
 $env:CODEMOSAIC_MAPPING_KEY = Get-Content ./.codemosaic/keys/team-dev.key
 ```
 
-### 3) Create a masked workspace
+### 3) Register the key source for the workspace
+
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+```
+
+### 4) Create a masked workspace
 
 ```bash
 python -m codemosaic mask ./your-repo --policy policy.sample.yaml
@@ -105,14 +112,14 @@ By default this creates:
 - masked source at `./your-repo.masked`
 - run artifacts at `./your-repo/.codemosaic/runs/<run-id>/`
 
-### 4) Fallback: use a legacy passphrase flow
+### 5) Fallback: use a legacy passphrase flow
 
 ```powershell
 $env:CODEMOSAIC_PASSPHRASE="change-me"
 python -m codemosaic mask ./your-repo --policy policy.sample.yaml --encrypt-mapping --passphrase-env CODEMOSAIC_PASSPHRASE
 ```
 
-### 5) Measure semantic leakage
+### 6) Measure semantic leakage
 
 ```bash
 python -m codemosaic leakage-report ./your-repo.masked --policy policy.sample.yaml --output leakage-report.json
@@ -124,19 +131,19 @@ To fail the command when thresholds are exceeded:
 python -m codemosaic leakage-report ./your-repo.masked --policy policy.sample.yaml --fail-on-threshold
 ```
 
-### 6) Build an AI bundle
+### 7) Build an AI bundle
 
 ```bash
 python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --max-files 20 --max-chars 12000
 ```
 
-### 7) Block unsafe exports automatically
+### 8) Block unsafe exports automatically
 
 ```bash
 python -m codemosaic bundle ./your-repo.masked --policy policy.sample.yaml --output ai-bundle.md --leakage-report leakage-report.json --fail-on-threshold
 ```
 
-### 8) Translate an AI patch back
+### 9) Translate an AI patch back
 
 ```bash
 python -m codemosaic unmask-patch ./masked-response.patch --mapping ./your-repo/.codemosaic/runs/<run-id>/mapping.enc.json --key-env CODEMOSAIC_MAPPING_KEY --output translated.patch
@@ -146,7 +153,7 @@ python -m codemosaic apply translated.patch --target ./your-repo
 
 ## Key management model
 
-CodeMosaic now supports a more product-like key workflow instead of relying only on ad-hoc passphrases.
+CodeMosaic now supports a more product-like key workflow instead of relying only on ad-hoc passphrases. It can also resolve `key_id` entries from a local workspace key registry.
 
 ### `managed-v1`
 
@@ -181,6 +188,17 @@ Supported key sources today:
 
 - `env`
 - `file`
+
+### Workspace key registry
+
+Teams can register reusable key-source references per workspace:
+
+```bash
+python -m codemosaic register-key-source ./your-repo --key-id team-dev-2026q1 --source env --reference CODEMOSAIC_MAPPING_KEY
+python -m codemosaic list-key-sources ./your-repo
+```
+
+Then policy can reference only the `key_id`, and `mask` resolves the source from `.codemosaic/key-registry.json`.
 
 ### Key rotation
 

@@ -37,9 +37,8 @@ mapping:
   require_encryption: false
   encryption_provider: managed-v1
   key_management:
-    source: env
-    reference: CODEMOSAIC_MAPPING_KEY
     key_id: team-dev-2026q1
+    registry_file: ./.codemosaic/key-registry.json
   rules:
     src/secret/**:
       require_encryption: true
