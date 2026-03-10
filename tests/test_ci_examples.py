@@ -13,7 +13,9 @@ class CiExamplesTests(unittest.TestCase):
         self.assertTrue(doc.exists())
         content = example.read_text(encoding='utf-8')
         self.assertIn('--fail-on-threshold', content)
-        self.assertIn('presets/balanced-ai-gateway.yaml', content)
+        self.assertIn('workflow_dispatch', content)
+        self.assertIn('python -m codemosaic init-policy', content)
+        self.assertIn('./.codemosaic/policy.yaml', content)
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ function activate(context) {
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('codemosaicRuns', runsProvider),
     vscode.commands.registerCommand('codemosaic.quickWorkflow', () => quickWorkflow(output, runsProvider)),
+    vscode.commands.registerCommand('codemosaic.initPolicyPreset', () => initPolicyPreset(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.scanWorkspace', () => scanWorkspace(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.leakageReport', () => leakageReport(output, runsProvider)),
     vscode.commands.registerCommand('codemosaic.maskWorkspace', () => maskWorkspace(output, runsProvider)),
@@ -120,6 +121,7 @@ async function quickWorkflow(output, runsProvider) {
   const recentRuns = getRecentRuns(workspaceRoot);
   const latestRun = recentRuns[0] || null;
   const picks = [
+    { label: 'Initialize policy preset', detail: 'Bootstrap a ready-to-use policy file for this workspace', run: () => initPolicyPreset(output, runsProvider) },
     { label: 'Scan workspace', detail: 'Run CodeMosaic scan on the current workspace', run: () => scanWorkspace(output, runsProvider) },
     { label: 'Analyze semantic leakage', detail: 'Estimate business meaning that still leaks after masking', run: () => leakageReport(output, runsProvider) },
     { label: 'Mask workspace', detail: 'Generate a masked workspace and mapping file', run: () => maskWorkspace(output, runsProvider) },
@@ -204,6 +206,64 @@ async function quickWorkflow(output, runsProvider) {
   if (choice && choice.run) {
     await choice.run();
   }
+}
+
+async function initPolicyPreset(output, runsProvider) {
+  const workspaceRoot = await requireWorkspaceRoot();
+  if (!workspaceRoot) {
+    return;
+  }
+  const presetChoices = [
+    { label: 'Balanced AI Gateway', presetId: 'balanced-ai-gateway', detail: 'Default for most application repositories and first external-AI pilots' },
+    { label: 'Strict AI Gateway', presetId: 'strict-ai-gateway', detail: 'For internal platforms, core algorithms, finance, and security-sensitive services' },
+    { label: 'Public SDK AI Gateway', presetId: 'public-sdk-ai-gateway', detail: 'For SDKs, examples, and semi-public integration code' }
+  ];
+  const selectedPreset = await vscode.window.showQuickPick(presetChoices, {
+    title: 'Choose a CodeMosaic policy preset',
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  if (!selectedPreset) {
+    return;
+  }
+  const config = vscode.workspace.getConfiguration('codemosaic');
+  const configuredPolicy = config.get('policyPath', 'policy.codemosaic.yaml');
+  const defaultOutput = configuredPolicy || 'policy.codemosaic.yaml';
+  const requestedOutput = await vscode.window.showInputBox({
+    title: 'Policy file path to create',
+    value: defaultOutput,
+    ignoreFocusOut: true,
+    validateInput: (value) => (value && value.trim() ? undefined : 'Policy output path is required')
+  });
+  if (!requestedOutput) {
+    return;
+  }
+  const outputPath = path.isAbsolute(requestedOutput) ? requestedOutput : path.join(workspaceRoot, requestedOutput);
+  const args = ['init-policy', '--preset', selectedPreset.presetId, '--output', outputPath];
+  if (fs.existsSync(outputPath)) {
+    const overwriteChoice = await vscode.window.showQuickPick(
+      [
+        { label: 'Overwrite existing file', force: true },
+        { label: 'Cancel', force: false }
+      ],
+      { title: `Policy file already exists: ${outputPath}` }
+    );
+    if (!overwriteChoice || !overwriteChoice.force) {
+      return;
+    }
+    args.push('--force');
+  }
+  const result = await runCodeMosaic(args, { cwd: workspaceRoot }, output);
+  if (!result) {
+    return;
+  }
+  const policySetting = normalizePolicySetting(workspaceRoot, outputPath);
+  if (policySetting) {
+    await config.update('policyPath', policySetting, vscode.ConfigurationTarget.Workspace);
+  }
+  runsProvider.refresh();
+  vscode.window.showInformationMessage(`CodeMosaic policy ready: ${outputPath}`);
+  openIfExists(outputPath);
 }
 
 async function scanWorkspace(output, runsProvider) {
@@ -934,12 +994,24 @@ async function chooseMappingFile(workspaceRoot) {
 }
 
 function resolveConfiguredPolicy(workspaceRoot) {
-  const configured = vscode.workspace.getConfiguration('codemosaic').get('policyPath', 'policy.sample.yaml');
+  const configured = vscode.workspace.getConfiguration('codemosaic').get('policyPath', 'policy.codemosaic.yaml');
   if (!configured) {
     return null;
   }
   const candidate = path.isAbsolute(configured) ? configured : path.join(workspaceRoot, configured);
-  return fs.existsSync(candidate) ? candidate : null;
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
+  const legacyCandidate = path.join(workspaceRoot, 'policy.sample.yaml');
+  return fs.existsSync(legacyCandidate) ? legacyCandidate : null;
+}
+
+function normalizePolicySetting(workspaceRoot, outputPath) {
+  const relativePath = path.relative(workspaceRoot, outputPath);
+  if (relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)) {
+    return relativePath.split(path.sep).join('/');
+  }
+  return outputPath;
 }
 
 async function requireWorkspaceRoot(showWarning = true) {

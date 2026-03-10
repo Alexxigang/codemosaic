@@ -384,11 +384,14 @@ python scripts/package_vscode_extension.py --overwrite
 
 The extension is intentionally lightweight and prototype-grade, but it tells the product story well:
 
+- initialize a policy preset from inside the editor
 - scan workspace
 - mask workspace
 - inspect recent runs
 - analyze leakage
 - attempt safe export
+
+The new `CodeMosaic: Initialize Policy Preset` command writes a ready-to-use workspace policy and points the extension at it automatically.
 
 ## Docs index
 

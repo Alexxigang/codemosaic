@@ -1,7 +1,20 @@
-﻿name: leakage-gate-example
+name: leakage-gate-example
+
+env:
+  CODEMOSAIC_POLICY_PATH: ./.codemosaic/policy.yaml
 
 on:
   workflow_dispatch:
+    inputs:
+      preset:
+        description: CodeMosaic policy preset to bootstrap before running the gate
+        required: true
+        default: balanced-ai-gateway
+        type: choice
+        options:
+          - balanced-ai-gateway
+          - strict-ai-gateway
+          - public-sdk-ai-gateway
   pull_request:
     paths:
       - '**/*.py'
@@ -10,6 +23,8 @@ on:
       - '**/*.js'
       - '**/*.jsx'
       - 'policy.sample.yaml'
+      - 'policy.codemosaic.yaml'
+      - '.codemosaic/policy.yaml'
       - 'presets/**'
 
 jobs:
@@ -24,16 +39,23 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Bootstrap CodeMosaic policy
+        run: |
+          python -m codemosaic init-policy \
+            --preset "${{ inputs.preset || 'balanced-ai-gateway' }}" \
+            --output "${{ env.CODEMOSAIC_POLICY_PATH }}" \
+            --force
+
       - name: Build masked workspace
         run: |
           python -m codemosaic mask . \
-            --policy presets/balanced-ai-gateway.yaml \
+            --policy "${{ env.CODEMOSAIC_POLICY_PATH }}" \
             --output ./.ci.masked
 
       - name: Enforce leakage budget gate
         run: |
           python -m codemosaic bundle ./.ci.masked \
-            --policy presets/balanced-ai-gateway.yaml \
+            --policy "${{ env.CODEMOSAIC_POLICY_PATH }}" \
             --output ./ai-bundle.md \
             --leakage-report ./leakage-report.json \
             --fail-on-threshold

@@ -15,18 +15,18 @@ Use `CodeMosaic` as a policy gate in CI so teams can answer a concrete question:
 
 ## Example GitHub Actions workflow
 
-See `examples/github-actions/leakage-gate.yml`.
+See `examples/github-actions/leakage-gate.yml`. The example now supports a `workflow_dispatch` preset choice and bootstraps a policy file inside CI before masking starts.
 
-Core command:
+Core commands:
 
 ```bash
+python -m codemosaic init-policy --preset balanced-ai-gateway --output ./.codemosaic/policy.yaml
 python -m codemosaic bundle ./.ci.masked \
-  --policy presets/balanced-ai-gateway.yaml \
+  --policy ./.codemosaic/policy.yaml \
   --output ./ai-bundle.md \
   --leakage-report ./leakage-report.json \
   --fail-on-threshold
 ```
-
 If the leakage budget is exceeded, the command exits with code `3`.
 
 ## Suggested preset starting points

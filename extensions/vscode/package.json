@@ -15,6 +15,7 @@
   "activationEvents": [
     "onView:codemosaicRuns",
     "onCommand:codemosaic.quickWorkflow",
+    "onCommand:codemosaic.initPolicyPreset",
     "onCommand:codemosaic.scanWorkspace",
     "onCommand:codemosaic.leakageReport",
     "onCommand:codemosaic.maskWorkspace",
@@ -36,6 +37,10 @@
       {
         "command": "codemosaic.quickWorkflow",
         "title": "CodeMosaic: Quick Workflow"
+      },
+      {
+        "command": "codemosaic.initPolicyPreset",
+        "title": "CodeMosaic: Initialize Policy Preset"
       },
       {
         "command": "codemosaic.scanWorkspace",
@@ -128,6 +133,10 @@
           "when": "workspaceFolderCount != 0"
         },
         {
+          "command": "codemosaic.initPolicyPreset",
+          "when": "workspaceFolderCount != 0"
+        },
+        {
           "command": "codemosaic.rekeyMapping",
           "when": "workspaceFolderCount != 0"
         },
@@ -178,8 +187,8 @@
         },
         "codemosaic.policyPath": {
           "type": "string",
-          "default": "policy.sample.yaml",
-          "description": "Relative or absolute policy path passed to CodeMosaic when available."
+          "default": "policy.codemosaic.yaml",
+          "description": "Relative or absolute policy path used by CodeMosaic commands. Defaults to the generated workspace policy file and falls back to policy.sample.yaml when present."
         },
         "codemosaic.defaultPassphraseEnv": {
           "type": "string",

@@ -251,6 +251,8 @@ python -m codemosaic mask-segmented ./your-repo --policy policy.sample.yaml --ou
 
 仓库内包含 `extensions/vscode` 原型扩展，可以进入编辑器中直接调用本地工作流。
 
+它现在支持 `CodeMosaic: Initialize Policy Preset`，可以在编辑器里一键生成工作区 policy，并自动把扩展配置指向这个文件。
+
 ```bash
 python scripts/package_vscode_extension.py --overwrite
 ```

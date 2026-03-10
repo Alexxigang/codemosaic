@@ -23,6 +23,17 @@ class VscodeManifestTests(unittest.TestCase):
         self.assertIn('onCommand:codemosaic.leakageReport', activation_events)
 
 
+    def test_manifest_exposes_init_policy_preset_command(self) -> None:
+        package_json = Path(__file__).resolve().parents[1] / 'extensions' / 'vscode' / 'package.json'
+        payload = json.loads(package_json.read_text(encoding='utf-8'))
+        commands = {item['command'] for item in payload['contributes']['commands']}
+        self.assertIn('codemosaic.initPolicyPreset', commands)
+        activation_events = set(payload['activationEvents'])
+        self.assertIn('onCommand:codemosaic.initPolicyPreset', activation_events)
+        properties = payload['contributes']['configuration']['properties']
+        self.assertEqual(properties['codemosaic.policyPath']['default'], 'policy.codemosaic.yaml')
+
+
     def test_manifest_exposes_safe_bundle_command(self) -> None:
         package_json = Path(__file__).resolve().parents[1] / 'extensions' / 'vscode' / 'package.json'
         payload = json.loads(package_json.read_text(encoding='utf-8'))
