@@ -16,10 +16,11 @@ class CliPolicyInitTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertIn('available presets: 3', result.stdout)
+        self.assertIn('available presets: 4', result.stdout)
         self.assertIn('strict-ai-gateway', result.stdout)
         self.assertIn('balanced-ai-gateway', result.stdout)
         self.assertIn('public-sdk-ai-gateway', result.stdout)
+        self.assertIn('enterprise-core-ai-gateway', result.stdout)
         self.assertIn('recommended for:', result.stdout)
 
     def test_init_policy_copies_selected_preset(self) -> None:

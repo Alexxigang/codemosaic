@@ -41,6 +41,7 @@ python -m codemosaic init-policy --preset balanced-ai-gateway --output ./.codemo
 - `presets/strict-ai-gateway.yaml`
 - `presets/balanced-ai-gateway.yaml`
 - `presets/public-sdk-ai-gateway.yaml`
+- `presets/enterprise-core-ai-gateway.yaml`
 
 ## Choosing a preset
 
@@ -55,6 +56,10 @@ python -m codemosaic init-policy --preset balanced-ai-gateway --output ./.codemo
 ### `public-sdk-ai-gateway.yaml`
 - Use for SDKs, sample repos, and semi-public integration code
 - Keeps governance in place while allowing more context to remain useful
+
+### `enterprise-core-ai-gateway.yaml`
+- Use for the highest-governance internal repositories
+- Starts with stricter leakage budgets and signed unmask expectations for core teams
 
 ## Team rollout suggestion
 

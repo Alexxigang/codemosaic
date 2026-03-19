@@ -13,6 +13,7 @@ class PolicyPresetsTests(unittest.TestCase):
             'strict-ai-gateway.yaml',
             'balanced-ai-gateway.yaml',
             'public-sdk-ai-gateway.yaml',
+            'enterprise-core-ai-gateway.yaml',
         ]:
             path = root / 'presets' / name
             self.assertTrue(path.exists())
@@ -23,6 +24,13 @@ class PolicyPresetsTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         policy = load_policy(root / 'presets' / 'strict-ai-gateway.yaml')
         self.assertTrue(policy.mapping.require_encryption)
+
+    def test_enterprise_core_preset_requires_signed_unmask(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        policy = load_policy(root / 'presets' / 'enterprise-core-ai-gateway.yaml')
+        self.assertTrue(policy.mapping.require_encryption)
+        self.assertTrue(policy.mapping.require_signature_for_unmask)
+        self.assertEqual(policy.mapping.encryption_provider, 'managed-v1')
 
 
 if __name__ == '__main__':

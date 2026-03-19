@@ -40,6 +40,12 @@ _PRESET_CATALOG: tuple[PolicyPreset, ...] = (
         description='Looser leakage budget for SDKs, examples, and semi-public integration code.',
         recommended_for=('SDKs', 'sample repos', 'developer docs', 'integration examples'),
     ),
+    PolicyPreset(
+        preset_id='enterprise-core-ai-gateway',
+        filename='enterprise-core-ai-gateway.yaml',
+        description='Enterprise-grade profile for core internal repositories with stricter leakage budgets and signed unmask expectations.',
+        recommended_for=('core repositories', 'sensitive internal services', 'platform control planes', 'high-governance teams'),
+    ),
 )
 
 

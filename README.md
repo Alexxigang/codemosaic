@@ -99,7 +99,7 @@ python -m codemosaic list-policy-presets
 python -m codemosaic init-policy --preset balanced-ai-gateway --output policy.codemosaic.yaml
 ```
 
-Use `balanced-ai-gateway` for most repositories, `strict-ai-gateway` for core internal code, and `public-sdk-ai-gateway` for SDKs or example-heavy repos.
+Use `balanced-ai-gateway` for most repositories, `strict-ai-gateway` for sensitive internal code, `enterprise-core-ai-gateway` for the highest-governance core repositories, and `public-sdk-ai-gateway` for SDKs or example-heavy repos.
 You can replace `policy.sample.yaml` with `policy.codemosaic.yaml` in the commands below.
 
 ### 1) Scan a repository
@@ -408,6 +408,7 @@ The new `CodeMosaic: Initialize Secure Workspace` command bootstraps policy, man
 - `docs/ci-governance.md` - CI recipes for policy enforcement
 - `docs/demo-walkthrough.md` - short demo flow for product storytelling
 - `docs/secure-workspace-example.md` - step-by-step secure workspace onboarding example
+- `docs/internal-ai-coding-playbook.md` - company rollout playbook for using external AI coding safely
 - `docs/landing-page.md` - launch/site messaging draft
 - `docs/release-playbook.md` - local release steps and assets
 - `docs/site/index.html` - static site source
